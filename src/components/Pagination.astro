@@ -1,0 +1,60 @@
+---
+export interface Props {
+  currentPage: number;
+  totalPages: number;
+  basePath: string; // e.g. "/blog" or "/tags/react"
+}
+
+const { currentPage, totalPages, basePath } = Astro.props;
+
+function pageURL(page: number): string {
+  if (page === 1) return basePath;
+  return `${basePath}/page/${page}`;
+}
+
+const hasPrev = currentPage > 1;
+const hasNext = currentPage < totalPages;
+---
+
+{totalPages > 1 && (
+  <nav
+    aria-label="Pagination"
+    class="flex items-center justify-between mt-12 gap-4"
+  >
+    {hasPrev ? (
+      <a
+        href={pageURL(currentPage - 1)}
+        class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors hover:opacity-80"
+        style="border-color: var(--color-border); color: var(--color-text); background-color: var(--color-bg-secondary);"
+        rel="prev"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        Previous
+      </a>
+    ) : (
+      <span aria-hidden="true" />
+    )}
+
+    <span class="text-sm" style="color: var(--color-text-muted);">
+      Page {currentPage} of {totalPages}
+    </span>
+
+    {hasNext ? (
+      <a
+        href={pageURL(currentPage + 1)}
+        class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors hover:opacity-80"
+        style="border-color: var(--color-border); color: var(--color-text); background-color: var(--color-bg-secondary);"
+        rel="next"
+      >
+        Next
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </a>
+    ) : (
+      <span aria-hidden="true" />
+    )}
+  </nav>
+)}

@@ -1,0 +1,62 @@
+---
+// Giscus comments backed by GitHub Discussions.
+// Configure via environment variables:
+//   GISCUS_REPO, GISCUS_REPO_ID, GISCUS_CATEGORY, GISCUS_CATEGORY_ID
+
+const repo = import.meta.env.GISCUS_REPO ?? 'owner/repo';
+const repoId = import.meta.env.GISCUS_REPO_ID ?? '';
+const category = import.meta.env.GISCUS_CATEGORY ?? 'Blog Comments';
+const categoryId = import.meta.env.GISCUS_CATEGORY_ID ?? '';
+---
+
+<section aria-label="Comments" class="mt-16">
+  <h2 class="text-xl font-bold mb-6" style="color: var(--color-heading);">Comments</h2>
+
+  <!-- Giscus is loaded lazily via IntersectionObserver in the script below -->
+  <div id="giscus-container" class="min-h-[200px]"></div>
+</section>
+
+<script define:vars={{ repo, repoId, category, categoryId }}>
+  // Lazy-load Giscus when the container scrolls into view
+  const container = document.getElementById('giscus-container');
+  if (!container) throw new Error('Missing giscus-container');
+
+  function loadGiscus() {
+    if (container.querySelector('script')) return; // already loaded
+
+    const storedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const isDark = storedTheme === 'dark' || (!storedTheme && prefersDark);
+    const giscusTheme = isDark ? 'dark_dimmed' : 'light';
+
+    const script = document.createElement('script');
+    script.src = 'https://giscus.app/client.js';
+    script.setAttribute('data-repo', repo);
+    script.setAttribute('data-repo-id', repoId);
+    script.setAttribute('data-category', category);
+    script.setAttribute('data-category-id', categoryId);
+    script.setAttribute('data-mapping', 'pathname');
+    script.setAttribute('data-strict', '0');
+    script.setAttribute('data-reactions-enabled', '1');
+    script.setAttribute('data-emit-metadata', '0');
+    script.setAttribute('data-input-position', 'bottom');
+    script.setAttribute('data-theme', giscusTheme);
+    script.setAttribute('data-lang', 'en');
+    script.setAttribute('data-loading', 'lazy');
+    script.crossOrigin = 'anonymous';
+    script.async = true;
+    container.appendChild(script);
+  }
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (entries[0].isIntersecting) {
+        loadGiscus();
+        observer.disconnect();
+      }
+    },
+    { rootMargin: '0px 0px 200px 0px' }
+  );
+
+  observer.observe(container);
+</script>
