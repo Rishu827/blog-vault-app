@@ -1,0 +1,130 @@
+---
+import '../styles/global.css';
+import Navbar from './Navbar.astro';
+
+export interface Props {
+  title: string;
+  description?: string;
+  canonicalURL?: string | null;
+  ogImage?: string | null;
+  ogType?: 'website' | 'article';
+  publishDate?: Date;
+  updatedDate?: Date | null;
+  tags?: string[];
+  author?: string;
+}
+
+const {
+  title,
+  description = 'A personal developer blog about software engineering, architecture, and tooling.',
+  canonicalURL,
+  ogImage,
+  ogType = 'website',
+  publishDate,
+  updatedDate,
+  tags = [],
+  author = 'Dev Author',
+} = Astro.props;
+
+const siteURL = Astro.site ?? new URL('https://example.com');
+const pageURL = canonicalURL ?? Astro.url.href;
+const defaultOgImage = new URL('/og-default.png', siteURL).href;
+const resolvedOgImage = ogImage ?? defaultOgImage;
+const fullTitle = title.includes('|') ? title : `${title} | DevBlog`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content={Astro.generator} />
+
+    <!-- ── Prevent Flash of Wrong Theme ── -->
+    <script is:inline>
+      (function () {
+        const stored = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const theme = stored === 'dark' || stored === 'light' ? stored : (prefersDark ? 'dark' : 'light');
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+
+    <!-- ── Primary Meta ── -->
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={pageURL} />
+    <meta name="author" content={author} />
+
+    <!-- ── Open Graph ── -->
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:url" content={pageURL} />
+    <meta property="og:image" content={resolvedOgImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- ── Twitter Card ── -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={resolvedOgImage} />
+
+    <!-- ── Article meta (for posts) ── -->
+    {ogType === 'article' && publishDate && (
+      <meta property="article:published_time" content={publishDate.toISOString()} />
+    )}
+    {ogType === 'article' && updatedDate && (
+      <meta property="article:modified_time" content={updatedDate.toISOString()} />
+    )}
+    {ogType === 'article' && tags.map((tag) => (
+      <meta property="article:tag" content={tag} />
+    ))}
+
+    <!-- ── Favicon ── -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- ── RSS auto-discovery ── -->
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title="DevBlog RSS Feed"
+      href="/rss.xml"
+    />
+  </head>
+
+  <body class="min-h-screen flex flex-col" style="background-color: var(--color-bg); color: var(--color-text);">
+    <!-- ── Skip to content (accessibility) ── -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <Navbar />
+
+    <main id="main-content" class="flex-1">
+      <slot />
+    </main>
+
+    <footer class="mt-16 py-8 border-t" style="border-color: var(--color-border); color: var(--color-text-muted);">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+        <p>
+          &copy; {new Date().getFullYear()} DevBlog. Built with
+          <a
+            href="https://astro.build"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="underline hover:text-[var(--color-accent)]"
+          >Astro</a>.
+        </p>
+        <nav aria-label="Footer navigation">
+          <ul class="flex gap-4 list-none p-0 m-0">
+            <li><a href="/blog" class="hover:text-[var(--color-accent)] hover:underline">Blog</a></li>
+            <li><a href="/tags" class="hover:text-[var(--color-accent)] hover:underline">Tags</a></li>
+            <li><a href="/rss.xml" class="hover:text-[var(--color-accent)] hover:underline">RSS</a></li>
+          </ul>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>
