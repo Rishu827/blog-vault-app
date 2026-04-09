@@ -1,0 +1,91 @@
+---
+import TagBadge from './TagBadge.astro';
+
+export interface Props {
+  title: string;
+  slug: string;
+  description: string;
+  publishDate: Date;
+  readingTime: number;
+  tags: string[];
+  coverImage?: string | null;
+  coverImageAlt?: string;
+  draft?: boolean;
+}
+
+const {
+  title,
+  slug,
+  description,
+  publishDate,
+  readingTime,
+  tags,
+  coverImage,
+  coverImageAlt,
+  draft = false,
+} = Astro.props;
+
+const formattedDate = publishDate.toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+---
+
+<article
+  class="group rounded-xl border p-5 transition-shadow hover:shadow-md flex flex-col gap-3"
+  style="border-color: var(--color-border); background-color: var(--color-bg-card);"
+>
+  {coverImage && (
+    <a href={`/blog/${slug}`} tabindex="-1" aria-hidden="true">
+      <img
+        src={coverImage}
+        alt={coverImageAlt ?? ''}
+        class="w-full h-40 object-cover rounded-lg mb-1"
+        loading="lazy"
+        decoding="async"
+        width="600"
+        height="160"
+      />
+    </a>
+  )}
+
+  <div class="flex-1 flex flex-col gap-2">
+    <div class="flex items-center gap-2 flex-wrap">
+      {draft && (
+        <span class="text-xs font-bold px-2 py-0.5 rounded bg-yellow-200 text-yellow-900 dark:bg-yellow-800 dark:text-yellow-200">
+          DRAFT
+        </span>
+      )}
+      {tags.slice(0, 3).map((tag) => <TagBadge tag={tag} />)}
+    </div>
+
+    <h2 class="text-lg font-bold leading-snug m-0">
+      <a
+        href={`/blog/${slug}`}
+        class="hover:underline"
+        style="color: var(--color-heading);"
+      >
+        {title}
+      </a>
+    </h2>
+
+    <p class="text-sm line-clamp-2 m-0" style="color: var(--color-text-muted);">
+      {description}
+    </p>
+  </div>
+
+  <footer class="flex items-center gap-3 text-xs mt-1" style="color: var(--color-text-muted);">
+    <time datetime={publishDate.toISOString()}>{formattedDate}</time>
+    <span aria-hidden="true">·</span>
+    <span>{readingTime} min read</span>
+    <a
+      href={`/blog/${slug}`}
+      class="ml-auto text-xs font-medium hover:underline"
+      style="color: var(--color-accent);"
+      aria-label={`Read ${title}`}
+    >
+      Read →
+    </a>
+  </footer>
+</article>
