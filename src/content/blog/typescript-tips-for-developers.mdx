@@ -1,0 +1,158 @@
+---
+title: "5 TypeScript Patterns That Changed How I Write Code"
+description: "Practical TypeScript patterns I use every day — discriminated unions, const assertions, satisfies, template literal types, and infer in conditional types."
+publishDate: 2026-04-09
+updatedDate: 2026-04-10
+author: "Dev Author"
+tags: ["typescript", "javascript", "patterns"]
+draft: false
+---
+
+TypeScript is deep. After years of writing it, I still find patterns that shift how I think. Here are five that stuck.
+
+## 1. Discriminated unions for state machines
+
+The classic mistake is modeling loading state with boolean flags:
+
+```typescript
+// Bad: flags can conflict
+interface State {
+  loading: boolean;
+  error: Error | null;
+  data: User | null;
+}
+// What does { loading: true, error: someError, data: null } mean?
+```
+
+Use a discriminated union instead:
+
+```typescript
+type State =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'error'; error: Error }
+  | { status: 'success'; data: User };
+```
+
+Now the compiler enforces that you handle every case, and impossible states are unrepresentable:
+
+```typescript
+function render(state: State) {
+  switch (state.status) {
+    case 'idle':    return <Idle />;
+    case 'loading': return <Spinner />;
+    case 'error':   return <Error message={state.error.message} />;
+    case 'success': return <Profile user={state.data} />;
+  }
+}
+```
+
+## 2. `const` assertions for literal inference
+
+TypeScript widens array literals to `string[]` by default:
+
+```typescript
+const methods = ['GET', 'POST', 'PUT', 'DELETE'];
+// type: string[]
+
+type Method = typeof methods[number];
+// type: string — not helpful
+```
+
+Add `as const`:
+
+```typescript
+const methods = ['GET', 'POST', 'PUT', 'DELETE'] as const;
+// type: readonly ["GET", "POST", "PUT", "DELETE"]
+
+type Method = typeof methods[number];
+// type: "GET" | "POST" | "PUT" | "DELETE"
+```
+
+This is indispensable when building lookup tables, route definitions, or anything that needs to derive a union type from an array.
+
+## 3. `satisfies` for constrained inference
+
+`satisfies` validates that a value matches a type without widening the inferred type:
+
+```typescript
+type Config = Record<string, { port: number; host: string }>;
+
+// Without satisfies: type is Config — you lose specifics
+const config: Config = {
+  db: { port: 5432, host: 'localhost' },
+  redis: { port: 6379, host: 'localhost' },
+};
+
+// With satisfies: type remains the literal object shape
+const config = {
+  db: { port: 5432, host: 'localhost' },
+  redis: { port: 6379, host: 'localhost' },
+} satisfies Config;
+
+// Now TypeScript knows config.db.port is number (not unknown)
+config.db.port.toFixed(0); // ✓ no error
+```
+
+I use this constantly for theme objects, route configs, and environment variable maps.
+
+## 4. Template literal types
+
+Template literal types let you construct string types programmatically:
+
+```typescript
+type EventName = 'click' | 'focus' | 'blur';
+type Handler = `on${Capitalize<EventName>}`;
+// type Handler = "onClick" | "onFocus" | "onBlur"
+```
+
+Practical example — typed CSS custom property keys:
+
+```typescript
+type ColorKey = 'primary' | 'secondary' | 'muted';
+type CSSVar = `--color-${ColorKey}`;
+// type CSSVar = "--color-primary" | "--color-secondary" | "--color-muted"
+
+function setCSSVar(key: CSSVar, value: string) {
+  document.documentElement.style.setProperty(key, value);
+}
+
+setCSSVar('--color-primary', '#2563eb'); // ✓
+setCSSVar('--color-unknown', '#fff');    // ✗ type error
+```
+
+## 5. `infer` in conditional types
+
+`infer` lets you extract types from within other types:
+
+```typescript
+// Extract the element type of an array
+type ElementOf<T> = T extends (infer Item)[] ? Item : never;
+
+type A = ElementOf<string[]>;  // string
+type B = ElementOf<number[]>;  // number
+type C = ElementOf<string>;    // never
+```
+
+More useful example — extract the resolved value of a Promise:
+
+```typescript
+type Awaited<T> = T extends Promise<infer R> ? Awaited<R> : T;
+
+type A = Awaited<Promise<string>>;           // string
+type B = Awaited<Promise<Promise<number>>>;  // number
+```
+
+(This is now built into TypeScript as `Awaited<T>`, but building it yourself is a great exercise.)
+
+## Takeaways
+
+These patterns share a theme: **making invalid states unrepresentable at the type level**. The goal isn't to be clever with types — it's to catch bugs that would otherwise reach production.
+
+- Discriminated unions: no conflicting boolean flags
+- `as const`: preserve literal types from arrays
+- `satisfies`: validate shape without widening
+- Template literals: string APIs with type safety
+- `infer`: type-level pattern matching
+
+When you reach for a type assertion (`as SomeType`), stop and ask whether one of these patterns eliminates the need for it.

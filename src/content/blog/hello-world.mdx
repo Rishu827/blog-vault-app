@@ -1,0 +1,75 @@
+---
+title: "Hello World: Starting This Blog"
+description: "Why I'm starting a developer blog, what I plan to write about, and the stack I chose to build it with — Astro, MDX, and Tailwind CSS."
+publishDate: 2026-04-01
+author: "Dev Author"
+tags: ["astro", "meta"]
+draft: false
+---
+
+Welcome to DevBlog — a place where I write about software engineering, tooling, and the things I learn along the way.
+
+## Why a blog?
+
+Writing is one of the best ways to solidify understanding. If you can't explain something clearly in words, you probably don't understand it well enough. A blog forces me to do that work.
+
+I've been meaning to start writing publicly for years. This is me finally doing it.
+
+## What to expect
+
+Posts will cover:
+
+- **Systems thinking** — architecture decisions, trade-offs, and design patterns
+- **Languages** — TypeScript, Rust, Go, Python, and the occasional SQL deep-dive
+- **Tooling** — build systems, CI/CD, editors, and dev workflow improvements
+- **DevOps** — containers, orchestration, observability
+
+No fluff. No listicles of things you could Google. I'll write about things I actually struggled with.
+
+## The stack
+
+I built this blog with [Astro](https://astro.build), MDX, and Tailwind CSS. Here's why:
+
+**Astro** ships zero JavaScript by default. For a content site, that's the right default. You opt into interactivity only where you need it (comments, theme toggle).
+
+**MDX** lets me write Markdown with React-ish components embedded. I can drop a live code demo, a custom callout, or a diagram inline without reaching for a CMS.
+
+**Tailwind CSS** keeps the stylesheet tiny. The output is purged at build — only the classes I actually used end up in the browser.
+
+Here's what the frontmatter for this post looks like:
+
+```yaml
+---
+title: "Hello World: Starting This Blog"
+description: "Why I'm starting a developer blog..."
+publishDate: 2026-04-01
+author: "Dev Author"
+tags: ["astro", "meta"]
+draft: false
+---
+```
+
+And here's the config that validates it at build time:
+
+```typescript
+import { defineCollection, z } from 'astro:content';
+
+const blog = defineCollection({
+  type: 'content',
+  schema: z.object({
+    title: z.string().max(100),
+    description: z.string().min(50).max(160),
+    publishDate: z.coerce.date(),
+    tags: z.array(z.string()).max(5).default([]),
+    draft: z.boolean().default(false),
+  }),
+});
+```
+
+If any required field is missing or malformed, the build fails. That's a better experience than discovering it in production.
+
+## What's next
+
+The next post will be a proper introduction to Astro — why it's a good fit for content sites and how content collections work. After that, I'll write about the theme system I built (dark/light/system with no flash of wrong theme).
+
+Thanks for reading.

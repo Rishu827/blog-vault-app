@@ -1,0 +1,147 @@
+---
+title: "Getting Started with Astro 4: Content Collections Deep Dive"
+description: "A practical guide to Astro's Content Collections API — how to define schemas with Zod, query posts, and build type-safe MDX-powered pages."
+publishDate: 2026-04-05
+author: "Dev Author"
+tags: ["astro", "typescript", "mdx"]
+draft: false
+---
+
+Astro's Content Collections API is one of the best ideas in the modern SSG space. It gives you a structured, type-safe way to manage Markdown and MDX content — with schema validation at build time instead of runtime surprises.
+
+This post is a practical guide to setting it up.
+
+## What are Content Collections?
+
+A content collection is a directory of Markdown/MDX files under `src/content/` with an optional schema. When you define a schema, Astro validates every file at build time. Bad frontmatter = build failure. That's the right default.
+
+The alternative — no schema, trust frontmatter to be correct — results in undefined values in production. Not fun to debug.
+
+## Setting up the schema
+
+Create `src/content/config.ts`:
+
+```typescript showLineNumbers
+import { defineCollection, z } from 'astro:content';
+
+const blog = defineCollection({
+  type: 'content',
+  schema: z.object({
+    title: z.string().max(100),
+    description: z.string().min(50).max(160),
+    publishDate: z.coerce.date(),
+    updatedDate: z.coerce.date().optional().nullable(),
+    author: z.string().default('Dev Author'),
+    tags: z.array(z.string().toLowerCase()).max(5).default([]),
+    coverImage: z.string().url().optional().nullable(),
+    coverImageAlt: z.string().optional(),
+    draft: z.boolean().default(false),
+    canonicalURL: z.string().url().optional().nullable(),
+  })
+  .refine(
+    (data) => !data.coverImage || data.coverImageAlt,
+    { message: 'coverImageAlt required when coverImage is set' }
+  ),
+});
+
+export const collections = { blog };
+```
+
+The `.refine()` at the end is a cross-field validation: if `coverImage` is set, `coverImageAlt` must also be set. Zod handles this elegantly.
+
+## Querying collections
+
+### Get all published posts
+
+```typescript
+import { getCollection } from 'astro:content';
+
+const posts = await getCollection('blog', ({ data }) => {
+  return !data.draft && data.publishDate <= new Date();
+});
+
+// Sort by date descending
+posts.sort((a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf());
+```
+
+The filter callback receives the entry with `data` already validated against your schema. TypeScript knows the exact shape.
+
+### Get a single post
+
+```typescript
+const post = await getEntry('blog', 'getting-started-with-astro');
+```
+
+The second argument is the file name without extension. If you have a `slug` field in frontmatter, you'd query by that instead via `getCollection` + filter.
+
+### Render MDX content
+
+```typescript
+const { Content, headings } = await post.render();
+```
+
+`Content` is an Astro component you render directly. `headings` is an array of `{ depth, slug, text }` objects — perfect for a Table of Contents.
+
+## Dynamic routes for posts
+
+```astro
+---
+// src/pages/blog/[...slug].astro
+import { getCollection, getEntry } from 'astro:content';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', ({ data }) => {
+    return !data.draft && data.publishDate <= new Date();
+  });
+
+  return posts.map((post) => ({
+    params: { slug: post.data.slug ?? post.slug },
+    props: { id: post.id },
+  }));
+}
+
+const { id } = Astro.props;
+const post = await getEntry('blog', id);
+const { Content, headings } = await post.render();
+---
+
+<article>
+  <h1>{post.data.title}</h1>
+  <Content />
+</article>
+```
+
+The `[...slug]` rest route handles nested slugs if you ever want to organize posts in subdirectories.
+
+## Draft behavior
+
+In development, show all posts including drafts:
+
+```typescript
+const isDev = import.meta.env.DEV;
+
+const posts = await getCollection('blog', ({ data }) => {
+  if (isDev) return true; // show everything in dev
+  return !data.draft && data.publishDate <= new Date();
+});
+```
+
+In production builds, drafts are completely excluded — they won't appear in HTML, RSS, the sitemap, or tag counts.
+
+## Performance note
+
+Content collections are processed at build time. There's no runtime cost. Astro caches the processed content, so incremental builds are fast even with hundreds of posts.
+
+The schema validation runs once per build. If you have 200 posts and one has a typo in `publishDate`, the build fails immediately with a clear error message pointing to the offending file.
+
+That's the right tradeoff: a few seconds at build time vs. a runtime bug in production.
+
+## Summary
+
+- Define your schema in `src/content/config.ts`
+- Use `getCollection` with a filter for queries
+- Use `getEntry` for single-post lookup
+- Call `.render()` to get the `Content` component and `headings`
+- Validate at build, not at runtime
+
+Next up: building a Table of Contents with `IntersectionObserver`.
