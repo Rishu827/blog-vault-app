@@ -1,0 +1,61 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../components/BaseLayout.astro';
+import PostCard from '../../components/PostCard.astro';
+import Pagination from '../../components/Pagination.astro';
+import { calculateReadingTime } from '../../utils/readingTime';
+
+const PAGE_SIZE = 10;
+const isDev = import.meta.env.DEV;
+
+const allPosts = await getCollection('blog', ({ data }) => {
+  if (isDev) return true;
+  return !data.draft && data.publishDate <= new Date();
+});
+
+const posts = allPosts
+  .sort((a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf());
+
+const totalPages = Math.ceil(posts.length / PAGE_SIZE);
+const pagePosts = posts.slice(0, PAGE_SIZE);
+---
+
+<BaseLayout
+  title="Blog | DevBlog"
+  description="All posts on software engineering, architecture, and tooling."
+>
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+    <header class="mb-8">
+      <h1 class="text-3xl font-bold" style="color: var(--color-heading);">Blog</h1>
+      <p class="mt-2 text-sm" style="color: var(--color-text-muted);">
+        {posts.length} {posts.length === 1 ? 'post' : 'posts'} total
+      </p>
+    </header>
+
+    {pagePosts.length === 0 ? (
+      <p style="color: var(--color-text-muted);">No posts published yet.</p>
+    ) : (
+      <div class="flex flex-col gap-5">
+        {pagePosts.map((post) => {
+          const slug = post.data.slug ?? post.slug;
+          const readingTime = calculateReadingTime(post.body);
+          return (
+            <PostCard
+              title={post.data.title}
+              slug={slug}
+              description={post.data.description}
+              publishDate={post.data.publishDate}
+              readingTime={readingTime}
+              tags={post.data.tags}
+              coverImage={post.data.coverImage}
+              coverImageAlt={post.data.coverImageAlt}
+              draft={post.data.draft}
+            />
+          );
+        })}
+      </div>
+    )}
+
+    <Pagination currentPage={1} totalPages={totalPages} basePath="/blog" />
+  </div>
+</BaseLayout>

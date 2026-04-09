@@ -1,0 +1,46 @@
+---
+import { getCollection, getEntry } from 'astro:content';
+import PostLayout from '../../components/PostLayout.astro';
+import { calculateReadingTime } from '../../utils/readingTime';
+
+export async function getStaticPaths() {
+  const isDev = import.meta.env.DEV;
+  const posts = await getCollection('blog', ({ data }) => {
+    if (isDev) return true;
+    return !data.draft && data.publishDate <= new Date();
+  });
+
+  return posts.map((post) => ({
+    params: { slug: post.data.slug ?? post.slug },
+    props: { id: post.id },
+  }));
+}
+
+const { id } = Astro.props;
+const post = await getEntry('blog', id);
+
+if (!post) {
+  return Astro.redirect('/404');
+}
+
+const { Content, headings } = await post.render();
+const readingTime = calculateReadingTime(post.body);
+const slug = post.data.slug ?? post.slug;
+---
+
+<PostLayout
+  title={post.data.title}
+  description={post.data.description}
+  publishDate={post.data.publishDate}
+  updatedDate={post.data.updatedDate}
+  author={post.data.author ?? 'Dev Author'}
+  tags={post.data.tags}
+  readingTime={readingTime}
+  coverImage={post.data.coverImage}
+  coverImageAlt={post.data.coverImageAlt}
+  canonicalURL={post.data.canonicalURL}
+  headings={headings}
+  draft={post.data.draft}
+>
+  <Content />
+</PostLayout>

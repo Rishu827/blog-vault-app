@@ -1,0 +1,73 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../../components/BaseLayout.astro';
+import PostCard from '../../../components/PostCard.astro';
+import Pagination from '../../../components/Pagination.astro';
+import { calculateReadingTime } from '../../../utils/readingTime';
+
+export async function getStaticPaths() {
+  const PAGE_SIZE = 10;
+  const isDev = import.meta.env.DEV;
+
+  const allPosts = await getCollection('blog', ({ data }) => {
+    if (isDev) return true;
+    return !data.draft && data.publishDate <= new Date();
+  });
+
+  const posts = allPosts.sort(
+    (a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf()
+  );
+
+  const totalPages = Math.ceil(posts.length / PAGE_SIZE);
+
+  // Generate pages 2+ (page 1 is /blog/index.astro)
+  return Array.from({ length: Math.max(0, totalPages - 1) }, (_, i) => {
+    const page = i + 2;
+    return {
+      params: { page: String(page) },
+      props: { posts, totalPages, PAGE_SIZE },
+    };
+  });
+}
+
+const { page } = Astro.params;
+const { posts, totalPages, PAGE_SIZE } = Astro.props;
+const currentPage = Number(page);
+const pagePosts = posts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+---
+
+<BaseLayout
+  title={`Blog — Page ${currentPage} | DevBlog`}
+  description={`Blog posts — page ${currentPage} of ${totalPages}.`}
+>
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+    <header class="mb-8">
+      <h1 class="text-3xl font-bold" style="color: var(--color-heading);">Blog</h1>
+      <p class="mt-2 text-sm" style="color: var(--color-text-muted);">
+        Page {currentPage} of {totalPages}
+      </p>
+    </header>
+
+    <div class="flex flex-col gap-5">
+      {pagePosts.map((post) => {
+        const slug = post.data.slug ?? post.slug;
+        const readingTime = calculateReadingTime(post.body);
+        return (
+          <PostCard
+            title={post.data.title}
+            slug={slug}
+            description={post.data.description}
+            publishDate={post.data.publishDate}
+            readingTime={readingTime}
+            tags={post.data.tags}
+            coverImage={post.data.coverImage}
+            coverImageAlt={post.data.coverImageAlt}
+            draft={post.data.draft}
+          />
+        );
+      })}
+    </div>
+
+    <Pagination currentPage={currentPage} totalPages={totalPages} basePath="/blog" />
+  </div>
+</BaseLayout>
