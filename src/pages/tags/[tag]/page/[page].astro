@@ -5,9 +5,8 @@ import PostCard from '../../../../components/PostCard.astro';
 import Pagination from '../../../../components/Pagination.astro';
 import { calculateReadingTime } from '../../../../utils/readingTime';
 
-const PAGE_SIZE = 10;
-
 export async function getStaticPaths() {
+  const PAGE_SIZE = 10;
   const isDev = import.meta.env.DEV;
 
   const allPosts = await getCollection('blog', ({ data }) => {

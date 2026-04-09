@@ -22,8 +22,6 @@ export default defineConfig({
       applyBaseStyles: false,
     }),
     preact({ compat: true }),
-    sitemap({
-      filter: (page) => !page.includes('/404'),
-    }),
+    sitemap(),
   ],
 });
