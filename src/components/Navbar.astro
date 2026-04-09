@@ -1,0 +1,113 @@
+---
+import ThemeToggle from './ThemeToggle.tsx';
+
+const navLinks = [
+  { href: '/', label: 'Home' },
+  { href: '/blog', label: 'Blog' },
+  { href: '/tags', label: 'Tags' },
+];
+
+const currentPath = Astro.url.pathname;
+
+function isActive(href: string) {
+  if (href === '/') return currentPath === '/';
+  return currentPath.startsWith(href);
+}
+---
+
+<header
+  class="sticky top-0 z-50 backdrop-blur-sm border-b"
+  style="background-color: var(--color-nav-bg); border-color: var(--color-border); height: var(--navbar-height);"
+>
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 h-full flex items-center justify-between">
+    <!-- Site title -->
+    <a
+      href="/"
+      class="text-lg font-bold tracking-tight hover:opacity-80 transition-opacity"
+      style="color: var(--color-heading);"
+      aria-label="DevBlog home"
+    >
+      <span style="color: var(--color-accent);">&lt;</span>DevBlog<span style="color: var(--color-accent);">/&gt;</span>
+    </a>
+
+    <!-- Desktop nav -->
+    <nav aria-label="Main navigation" class="hidden sm:flex items-center gap-1">
+      {navLinks.map(({ href, label }) => (
+        <a
+          href={href}
+          class={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            isActive(href)
+              ? 'font-semibold'
+              : 'hover:opacity-80'
+          }`}
+          style={isActive(href)
+            ? 'color: var(--color-accent);'
+            : 'color: var(--color-text-muted);'}
+          aria-current={isActive(href) ? 'page' : undefined}
+        >
+          {label}
+        </a>
+      ))}
+      <ThemeToggle client:load />
+    </nav>
+
+    <!-- Mobile: theme toggle + hamburger -->
+    <div class="flex sm:hidden items-center gap-2">
+      <ThemeToggle client:load />
+      <button
+        id="mobile-menu-toggle"
+        aria-controls="mobile-menu"
+        aria-expanded="false"
+        aria-label="Toggle mobile menu"
+        class="p-2 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2"
+        style="color: var(--color-text-muted); --tw-ring-color: var(--color-accent);"
+      >
+        <svg id="icon-menu" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+        <svg id="icon-close" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="hidden">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile menu -->
+  <nav
+    id="mobile-menu"
+    aria-label="Mobile navigation"
+    class="hidden sm:hidden border-t px-4 pb-4"
+    style="background-color: var(--color-nav-bg); border-color: var(--color-border);"
+  >
+    {navLinks.map(({ href, label }) => (
+      <a
+        href={href}
+        class="block px-3 py-2 rounded-md text-sm font-medium mt-1 transition-colors"
+        style={isActive(href)
+          ? 'color: var(--color-accent); background-color: var(--color-bg-secondary);'
+          : 'color: var(--color-text);'}
+        aria-current={isActive(href) ? 'page' : undefined}
+      >
+        {label}
+      </a>
+    ))}
+  </nav>
+</header>
+
+<script>
+  const toggle = document.getElementById('mobile-menu-toggle');
+  const menu = document.getElementById('mobile-menu');
+  const iconMenu = document.getElementById('icon-menu');
+  const iconClose = document.getElementById('icon-close');
+
+  toggle?.addEventListener('click', () => {
+    const isOpen = menu?.classList.contains('hidden') === false;
+    menu?.classList.toggle('hidden', isOpen);
+    iconMenu?.classList.toggle('hidden', !isOpen);
+    iconClose?.classList.toggle('hidden', isOpen);
+    toggle.setAttribute('aria-expanded', String(!isOpen));
+  });
+</script>
