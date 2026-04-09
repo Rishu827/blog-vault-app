@@ -1,0 +1,32 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Page Not Found | DevBlog"
+  description="The page you're looking for doesn't exist."
+>
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 py-20 text-center">
+    <p class="text-7xl font-bold mb-4" style="color: var(--color-accent);">404</p>
+    <h1 class="text-2xl font-bold mb-3" style="color: var(--color-heading);">Page not found</h1>
+    <p class="mb-8" style="color: var(--color-text-muted);">
+      The page you're looking for doesn't exist or may have been moved.
+    </p>
+    <div class="flex flex-wrap gap-3 justify-center">
+      <a
+        href="/"
+        class="px-5 py-2.5 rounded-lg text-sm font-semibold transition-opacity hover:opacity-80"
+        style="background-color: var(--color-accent); color: #fff;"
+      >
+        ← Go home
+      </a>
+      <a
+        href="/blog"
+        class="px-5 py-2.5 rounded-lg border text-sm font-medium transition-colors hover:opacity-80"
+        style="border-color: var(--color-border); color: var(--color-text);"
+      >
+        Browse posts
+      </a>
+    </div>
+  </div>
+</BaseLayout>

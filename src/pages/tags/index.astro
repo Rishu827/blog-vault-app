@@ -1,0 +1,61 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../components/BaseLayout.astro';
+import TagBadge from '../../components/TagBadge.astro';
+
+const isDev = import.meta.env.DEV;
+
+const allPosts = await getCollection('blog', ({ data }) => {
+  if (isDev) return true;
+  return !data.draft && data.publishDate <= new Date();
+});
+
+// Build tag → post count map
+const tagMap = new Map<string, number>();
+for (const post of allPosts) {
+  for (const tag of post.data.tags) {
+    tagMap.set(tag, (tagMap.get(tag) ?? 0) + 1);
+  }
+}
+
+// Sort alphabetically
+const tags = [...tagMap.entries()].sort(([a], [b]) => a.localeCompare(b));
+---
+
+<BaseLayout
+  title="Tags | DevBlog"
+  description="Browse all topics covered on DevBlog."
+>
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+    <header class="mb-8">
+      <h1 class="text-3xl font-bold" style="color: var(--color-heading);">Tags</h1>
+      <p class="mt-2 text-sm" style="color: var(--color-text-muted);">
+        {tags.length} {tags.length === 1 ? 'topic' : 'topics'}
+      </p>
+    </header>
+
+    {tags.length === 0 ? (
+      <p style="color: var(--color-text-muted);">No tags yet.</p>
+    ) : (
+      <ul class="flex flex-wrap gap-3 list-none p-0" role="list">
+        {tags.map(([tag, count]) => (
+          <li role="listitem">
+            <a
+              href={`/tags/${tag}`}
+              class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-colors hover:opacity-80 no-underline"
+              style="border-color: var(--color-border); color: var(--color-text); background-color: var(--color-bg-secondary);"
+            >
+              <span style="color: var(--color-accent);">#{tag}</span>
+              <span
+                class="text-xs px-1.5 py-0.5 rounded-full font-medium"
+                style="background-color: var(--color-border); color: var(--color-text-muted);"
+              >
+                {count}
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+</BaseLayout>

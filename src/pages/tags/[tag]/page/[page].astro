@@ -1,0 +1,88 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../../../components/BaseLayout.astro';
+import PostCard from '../../../../components/PostCard.astro';
+import Pagination from '../../../../components/Pagination.astro';
+import { calculateReadingTime } from '../../../../utils/readingTime';
+
+const PAGE_SIZE = 10;
+
+export async function getStaticPaths() {
+  const isDev = import.meta.env.DEV;
+
+  const allPosts = await getCollection('blog', ({ data }) => {
+    if (isDev) return true;
+    return !data.draft && data.publishDate <= new Date();
+  });
+
+  const tagMap = new Map<string, typeof allPosts>();
+  for (const post of allPosts) {
+    for (const tag of post.data.tags) {
+      if (!tagMap.has(tag)) tagMap.set(tag, []);
+      tagMap.get(tag)!.push(post);
+    }
+  }
+
+  const paths: { params: { tag: string; page: string }; props: { posts: typeof allPosts } }[] = [];
+
+  for (const [tag, tagPosts] of tagMap) {
+    const sorted = tagPosts.sort(
+      (a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf()
+    );
+    const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+    for (let page = 2; page <= totalPages; page++) {
+      paths.push({
+        params: { tag, page: String(page) },
+        props: { posts: sorted },
+      });
+    }
+  }
+
+  return paths;
+}
+
+const { tag, page } = Astro.params;
+const { posts } = Astro.props;
+const currentPage = Number(page);
+const totalPages = Math.ceil(posts.length / PAGE_SIZE);
+const pagePosts = posts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+---
+
+<BaseLayout
+  title={`#${tag} — Page ${currentPage} | DevBlog`}
+  description={`Posts tagged with #${tag} — page ${currentPage} of ${totalPages}.`}
+>
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+    <header class="mb-8">
+      <a href={`/tags/${tag}`} class="text-sm hover:underline mb-3 inline-block" style="color: var(--color-text-muted);">
+        ← #{tag}
+      </a>
+      <h1 class="text-3xl font-bold" style="color: var(--color-heading);">#{tag}</h1>
+      <p class="mt-2 text-sm" style="color: var(--color-text-muted);">
+        Page {currentPage} of {totalPages}
+      </p>
+    </header>
+
+    <div class="flex flex-col gap-5">
+      {pagePosts.map((post) => {
+        const slug = post.data.slug ?? post.slug;
+        const readingTime = calculateReadingTime(post.body);
+        return (
+          <PostCard
+            title={post.data.title}
+            slug={slug}
+            description={post.data.description}
+            publishDate={post.data.publishDate}
+            readingTime={readingTime}
+            tags={post.data.tags}
+            coverImage={post.data.coverImage}
+            coverImageAlt={post.data.coverImageAlt}
+            draft={post.data.draft}
+          />
+        );
+      })}
+    </div>
+
+    <Pagination currentPage={currentPage} totalPages={totalPages} basePath={`/tags/${tag}`} />
+  </div>
+</BaseLayout>

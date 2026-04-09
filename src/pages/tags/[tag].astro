@@ -1,0 +1,83 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../components/BaseLayout.astro';
+import PostCard from '../../components/PostCard.astro';
+import Pagination from '../../components/Pagination.astro';
+import { calculateReadingTime } from '../../utils/readingTime';
+
+const PAGE_SIZE = 10;
+
+export async function getStaticPaths() {
+  const isDev = import.meta.env.DEV;
+
+  const allPosts = await getCollection('blog', ({ data }) => {
+    if (isDev) return true;
+    return !data.draft && data.publishDate <= new Date();
+  });
+
+  const tagSet = new Set<string>();
+  for (const post of allPosts) {
+    for (const tag of post.data.tags) tagSet.add(tag);
+  }
+
+  return [...tagSet].map((tag) => {
+    const tagPosts = allPosts
+      .filter((p) => p.data.tags.includes(tag))
+      .sort((a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf());
+
+    return {
+      params: { tag },
+      props: { posts: tagPosts },
+    };
+  });
+}
+
+const { tag } = Astro.params;
+const { posts } = Astro.props;
+
+const totalPages = Math.ceil(posts.length / PAGE_SIZE);
+const pagePosts = posts.slice(0, PAGE_SIZE);
+---
+
+<BaseLayout
+  title={`#${tag} | DevBlog`}
+  description={`All posts tagged with #${tag}.`}
+>
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+    <header class="mb-8">
+      <a href="/tags" class="text-sm hover:underline mb-3 inline-block" style="color: var(--color-text-muted);">
+        ← All tags
+      </a>
+      <h1 class="text-3xl font-bold" style="color: var(--color-heading);">#{tag}</h1>
+      <p class="mt-2 text-sm" style="color: var(--color-text-muted);">
+        {posts.length} {posts.length === 1 ? 'post' : 'posts'}
+      </p>
+    </header>
+
+    {pagePosts.length === 0 ? (
+      <p style="color: var(--color-text-muted);">No posts with this tag.</p>
+    ) : (
+      <div class="flex flex-col gap-5">
+        {pagePosts.map((post) => {
+          const slug = post.data.slug ?? post.slug;
+          const readingTime = calculateReadingTime(post.body);
+          return (
+            <PostCard
+              title={post.data.title}
+              slug={slug}
+              description={post.data.description}
+              publishDate={post.data.publishDate}
+              readingTime={readingTime}
+              tags={post.data.tags}
+              coverImage={post.data.coverImage}
+              coverImageAlt={post.data.coverImageAlt}
+              draft={post.data.draft}
+            />
+          );
+        })}
+      </div>
+    )}
+
+    <Pagination currentPage={1} totalPages={totalPages} basePath={`/tags/${tag}`} />
+  </div>
+</BaseLayout>
