@@ -5,6 +5,8 @@ import PostCard from '../components/PostCard.astro';
 import { calculateReadingTime } from '../utils/readingTime';
 
 const isDev = import.meta.env.DEV;
+const siteUrl = (import.meta.env.SITE_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://rishabh-writes.vercel.app';
+const feedUrl = `${siteUrl}/rss.xml`;
 
 const allPosts = await getCollection('blog', ({ data }) => {
   if (isDev) return true;
@@ -42,7 +44,7 @@ const posts = allPosts
         <div class="relative" id="rss-wrapper">
           <div class="flex rounded-lg border overflow-hidden" style="border-color: var(--color-border);">
             <a
-              href={`https://feedly.com/i/subscription/feed/${Astro.site}rss.xml`}
+              href={`https://feedly.com/i/subscription/feed/${feedUrl}`}
               target="_blank"
               rel="noopener noreferrer"
               class="flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors hover:opacity-80"
@@ -61,6 +63,7 @@ const posts = allPosts
             <!-- Copy URL button -->
             <button
               id="rss-copy-btn"
+              data-feed-url={feedUrl}
               aria-label="Copy RSS feed URL"
               title="Copy feed URL"
               class="px-3 py-2.5 text-sm transition-colors hover:opacity-80 focus-visible:outline-none focus-visible:ring-2"
@@ -139,7 +142,7 @@ const posts = allPosts
   const tooltip = document.getElementById('rss-copied');
 
   btn?.addEventListener('click', async () => {
-    const feedUrl = `${window.location.origin}/rss.xml`;
+    const feedUrl = document.getElementById('rss-copy-btn')?.dataset.feedUrl ?? `${window.location.origin}/rss.xml`;
     await navigator.clipboard.writeText(feedUrl);
     iconCopy?.classList.add('hidden');
     iconCheck?.classList.remove('hidden');
