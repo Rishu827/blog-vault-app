@@ -56,19 +56,7 @@ export default function CopyCodeButton() {
 
       btn.addEventListener('click', async () => {
         const code = pre.querySelector('code')?.innerText ?? pre.innerText;
-        try {
-          await navigator.clipboard.writeText(code);
-        } catch {
-          // Fallback for older browsers
-          const ta = document.createElement('textarea');
-          ta.value = code;
-          ta.style.position = 'fixed';
-          ta.style.opacity = '0';
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand('copy');
-          document.body.removeChild(ta);
-        }
+        await navigator.clipboard.writeText(code);
 
         // Show checkmark for 2 seconds
         const iconCopy = btn.querySelector<SVGElement>('.icon-copy');

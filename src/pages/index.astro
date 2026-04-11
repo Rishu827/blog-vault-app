@@ -38,13 +38,54 @@ const posts = allPosts
         >
           Read the blog →
         </a>
-        <a
-          href="/rss.xml"
-          class="px-5 py-2.5 rounded-lg border text-sm font-medium transition-colors hover:opacity-80"
-          style="border-color: var(--color-border); color: var(--color-text);"
-        >
-          Subscribe via RSS
-        </a>
+        <!-- RSS subscribe button — opens Feedly with the feed pre-loaded -->
+        <div class="relative" id="rss-wrapper">
+          <div class="flex rounded-lg border overflow-hidden" style="border-color: var(--color-border);">
+            <a
+              href={`https://feedly.com/i/subscription/feed/${Astro.site}rss.xml`}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors hover:opacity-80"
+              style="color: var(--color-text);"
+              aria-label="Subscribe via RSS — opens in Feedly"
+            >
+              <!-- RSS icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="color: var(--color-accent);">
+                <circle cx="6.18" cy="17.82" r="2.18"/>
+                <path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/>
+              </svg>
+              Subscribe via RSS
+            </a>
+            <!-- Divider -->
+            <div style="width:1px; background-color: var(--color-border);"></div>
+            <!-- Copy URL button -->
+            <button
+              id="rss-copy-btn"
+              aria-label="Copy RSS feed URL"
+              title="Copy feed URL"
+              class="px-3 py-2.5 text-sm transition-colors hover:opacity-80 focus-visible:outline-none focus-visible:ring-2"
+              style="color: var(--color-text-muted); --tw-ring-color: var(--color-accent);"
+            >
+              <svg id="rss-icon-copy" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              <svg id="rss-icon-check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="hidden" style="color: var(--color-accent);">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </button>
+          </div>
+          <!-- Copied tooltip -->
+          <span
+            id="rss-copied"
+            class="hidden absolute left-1/2 -bottom-8 -translate-x-1/2 text-xs px-2 py-1 rounded whitespace-nowrap"
+            style="background-color: var(--color-bg-secondary); color: var(--color-text-muted); border: 1px solid var(--color-border);"
+            role="status"
+            aria-live="polite"
+          >
+            Copied!
+          </span>
+        </div>
       </div>
     </div>
   </section>
@@ -91,4 +132,23 @@ const posts = allPosts
       </div>
     )}
   </section>
+<script>
+  const btn = document.getElementById('rss-copy-btn');
+  const iconCopy = document.getElementById('rss-icon-copy');
+  const iconCheck = document.getElementById('rss-icon-check');
+  const tooltip = document.getElementById('rss-copied');
+
+  btn?.addEventListener('click', async () => {
+    const feedUrl = `${window.location.origin}/rss.xml`;
+    await navigator.clipboard.writeText(feedUrl);
+    iconCopy?.classList.add('hidden');
+    iconCheck?.classList.remove('hidden');
+    tooltip?.classList.remove('hidden');
+    setTimeout(() => {
+      iconCopy?.classList.remove('hidden');
+      iconCheck?.classList.add('hidden');
+      tooltip?.classList.add('hidden');
+    }, 2000);
+  });
+</script>
 </BaseLayout>
