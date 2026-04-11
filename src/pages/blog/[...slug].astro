@@ -1,5 +1,5 @@
 ---
-import { getCollection, getEntry } from 'astro:content';
+import { getCollection } from 'astro:content';
 import PostLayout from '../../components/PostLayout.astro';
 import { calculateReadingTime } from '../../utils/readingTime';
 
@@ -12,17 +12,11 @@ export async function getStaticPaths() {
 
   return posts.map((post) => ({
     params: { slug: post.data.slug ?? post.slug },
-    props: { id: post.id },
+    props: { post },
   }));
 }
 
-const { id } = Astro.props;
-const post = await getEntry('blog', id);
-
-if (!post) {
-  return Astro.redirect('/404');
-}
-
+const { post } = Astro.props;
 const { Content, headings } = await post.render();
 const readingTime = calculateReadingTime(post.body);
 const slug = post.data.slug ?? post.slug;
