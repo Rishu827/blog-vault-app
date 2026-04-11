@@ -12,7 +12,6 @@ interface Props {
 
 export default function TableOfContents({ headings }: Props) {
   const [activeId, setActiveId] = useState<string>('');
-  const [isOpen, setIsOpen] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   // Filter to H2 and H3 only
@@ -47,10 +46,8 @@ export default function TableOfContents({ headings }: Props) {
 
   if (tocHeadings.length === 0) return null;
 
-  function handleClick(slug: string) {
-    setIsOpen(false);
-    // Let browser handle scroll; active state updates via observer
-    // Close mobile ToC after click
+  function handleClick(_slug: string) {
+    // Active state updates via IntersectionObserver
   }
 
   const TocList = () => (
@@ -82,43 +79,7 @@ export default function TableOfContents({ headings }: Props) {
 
   return (
     <>
-      {/* Mobile: collapsible */}
-      <div
-        class="xl:hidden rounded-lg border p-4 mb-8"
-        style="border-color: var(--color-border); background-color: var(--color-bg-secondary);"
-      >
-        <button
-          onClick={() => setIsOpen((o) => !o)}
-          class="flex items-center justify-between w-full text-sm font-semibold"
-          style="color: var(--color-heading);"
-          aria-expanded={isOpen}
-          aria-controls="toc-mobile-list"
-        >
-          <span>Table of Contents</span>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-            style={`transform: rotate(${isOpen ? '180deg' : '0deg'}); transition: transform 0.2s;`}
-          >
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </button>
-        {isOpen && (
-          <div id="toc-mobile-list" class="mt-3">
-            <TocList />
-          </div>
-        )}
-      </div>
-
-      {/* Desktop: sticky sidebar (rendered by PostLayout) */}
+      {/* Desktop-only sticky sidebar */}
       <div
         class="hidden xl:block sticky top-[calc(var(--navbar-height)+1rem)] max-h-[calc(100vh-var(--navbar-height)-2rem)] overflow-y-auto"
         aria-label="Table of contents"

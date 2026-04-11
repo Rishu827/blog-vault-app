@@ -4,6 +4,8 @@ import TagBadge from './TagBadge.astro';
 import TableOfContents from './TableOfContents.tsx';
 import GiscusComments from './GiscusComments.astro';
 import CopyCodeButton from './CopyCodeButton.tsx';
+import ReadingProgress from './ReadingProgress.tsx';
+import SelectionComment from './SelectionComment.tsx';
 import type { Heading } from './TableOfContents.tsx';
 
 export interface Props {
@@ -36,6 +38,9 @@ const {
   draft = false,
 } = Astro.props;
 
+const giscusRepo = import.meta.env.GISCUS_REPO ?? '';
+const giscusCategory = import.meta.env.GISCUS_CATEGORY ?? 'Blog Comments';
+
 const formattedDate = publishDate.toLocaleDateString('en-US', {
   year: 'numeric',
   month: 'long',
@@ -46,7 +51,6 @@ const formattedUpdated = updatedDate
   ? updatedDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
   : null;
 
-// JSON-LD BlogPosting schema
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'BlogPosting',
@@ -54,16 +58,10 @@ const jsonLd = {
   description,
   datePublished: publishDate.toISOString(),
   dateModified: (updatedDate ?? publishDate).toISOString(),
-  author: {
-    '@type': 'Person',
-    name: author,
-  },
+  author: { '@type': 'Person', name: author },
   image: coverImage ?? undefined,
   url: Astro.url.href,
-  mainEntityOfPage: {
-    '@type': 'WebPage',
-    '@id': Astro.url.href,
-  },
+  mainEntityOfPage: { '@type': 'WebPage', '@id': Astro.url.href },
 };
 ---
 
@@ -78,16 +76,17 @@ const jsonLd = {
   tags={tags}
   author={author}
 >
-  <!-- JSON-LD -->
   <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} slot="head" />
 
+  <!-- Reading progress bar -->
+  <ReadingProgress client:load />
+
   <div class="max-w-[90rem] mx-auto px-4 sm:px-6 py-10">
-    <div class="xl:grid xl:grid-cols-[1fr_220px] xl:gap-16 max-w-4xl xl:max-w-none mx-auto xl:mx-0">
+    <div class="xl:grid xl:grid-cols-[1fr_220px] xl:gap-16 max-w-3xl xl:max-w-none mx-auto xl:mx-0">
 
       <!-- Article -->
       <article aria-labelledby="post-title">
 
-        <!-- Cover image -->
         {coverImage && (
           <img
             src={coverImage}
@@ -100,20 +99,19 @@ const jsonLd = {
           />
         )}
 
-        <!-- Header -->
-        <header class="mb-8">
+        <header class="mb-10">
           {draft && (
             <span class="inline-block mb-3 text-xs font-bold px-2.5 py-1 rounded bg-yellow-200 text-yellow-900 dark:bg-yellow-800 dark:text-yellow-200">
               DRAFT — Not published
             </span>
           )}
 
-          <h1 id="post-title" class="text-3xl sm:text-4xl font-bold leading-tight mb-4" style="color: var(--color-heading);">
+          <h1 id="post-title" class="text-3xl sm:text-4xl font-bold leading-tight mb-5" style="color: var(--color-heading);">
             {title}
           </h1>
 
-          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm mb-4" style="color: var(--color-text-muted);">
-            <span>{author}</span>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm mb-5 pb-5 border-b" style="color: var(--color-text-muted); border-color: var(--color-border);">
+            <span class="font-medium" style="color: var(--color-text);">{author}</span>
             <span aria-hidden="true">·</span>
             <time datetime={publishDate.toISOString()}>{formattedDate}</time>
             <span aria-hidden="true">·</span>
@@ -129,30 +127,45 @@ const jsonLd = {
           {tags.length > 0 && (
             <div class="flex flex-wrap gap-2" role="list" aria-label="Post tags">
               {tags.map((tag) => (
-                <div role="listitem">
-                  <TagBadge tag={tag} />
-                </div>
+                <div role="listitem"><TagBadge tag={tag} /></div>
               ))}
             </div>
           )}
         </header>
 
-        <!-- Mobile ToC (rendered inside article, above body) -->
-        <TableOfContents headings={headings} client:idle />
-
-        <!-- MDX body -->
-        <div class="prose prose-slate dark:prose-invert max-w-none prose-headings:scroll-mt-[calc(var(--navbar-height)+1rem)]">
+        <!-- Article body — id used by ReadingProgress and SelectionComment -->
+        <div
+          id="article-body"
+          class="relative prose prose-slate dark:prose-invert max-w-none
+            prose-p:leading-8 prose-p:text-[1.0625rem]
+            prose-headings:scroll-mt-[calc(var(--navbar-height)+1.5rem)]
+            prose-headings:font-bold
+            prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-4
+            prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-3
+            prose-li:leading-7
+            prose-blockquote:not-italic prose-blockquote:border-l-4
+            selection:bg-blue-200 dark:selection:bg-blue-800 selection:text-inherit"
+        >
           <slot />
+
+          <!-- Highlight-to-comment tooltip (absolute positioned inside article-body) -->
+          {giscusRepo && (
+            <SelectionComment
+              repo={giscusRepo}
+              category={giscusCategory}
+              pageTitle={title}
+              pageUrl={Astro.url.href}
+              client:load
+            />
+          )}
         </div>
 
-        <!-- Activate copy buttons for code blocks -->
         <CopyCodeButton client:visible />
 
-        <!-- Comments -->
         <GiscusComments />
       </article>
 
-      <!-- Desktop ToC sidebar -->
+      <!-- Desktop ToC sidebar (only shown ≥ xl) -->
       <aside aria-label="Table of contents" class="hidden xl:block">
         <TableOfContents headings={headings} client:idle />
       </aside>
