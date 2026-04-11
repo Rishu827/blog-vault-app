@@ -4,12 +4,17 @@ import mdx from '@astrojs/mdx';
 import tailwind from '@astrojs/tailwind';
 import preact from '@astrojs/preact';
 import sitemap from '@astrojs/sitemap';
+import vercel from '@astrojs/vercel/serverless';
 
 dotenvConfig(); // loads .env into process.env
 
 // https://astro.build/config
 export default defineConfig({
   site: process.env.SITE_URL || 'https://example.com',
+  output: 'server',
+  adapter: vercel({
+    webAnalytics: { enabled: true },
+  }),
   integrations: [
     mdx({
       syntaxHighlight: 'shiki',
