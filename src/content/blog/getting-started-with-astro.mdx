@@ -2,7 +2,7 @@
 title: "Getting Started with Astro 4: Content Collections Deep Dive"
 description: "A practical guide to Astro's Content Collections API — how to define schemas with Zod, query posts, and build type-safe MDX-powered pages."
 publishDate: 2026-04-05
-author: "Dev Author"
+author: "Rishabh Singhal"
 tags: ["astro", "typescript", "mdx"]
 draft: false
 ---
@@ -31,7 +31,7 @@ const blog = defineCollection({
     description: z.string().min(50).max(160),
     publishDate: z.coerce.date(),
     updatedDate: z.coerce.date().optional().nullable(),
-    author: z.string().default('Dev Author'),
+    author: z.string().default('Rishabh Singhal'),
     tags: z.array(z.string().toLowerCase()).max(5).default([]),
     coverImage: z.string().url().optional().nullable(),
     coverImageAlt: z.string().optional(),

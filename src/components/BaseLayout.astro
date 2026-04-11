@@ -23,14 +23,14 @@ const {
   publishDate,
   updatedDate,
   tags = [],
-  author = 'Dev Author',
+  author = 'Rishabh Singhal',
 } = Astro.props;
 
 const siteURL = Astro.site ?? new URL('https://example.com');
 const pageURL = canonicalURL ?? Astro.url.href;
 const defaultOgImage = new URL('/og-default.png', siteURL).href;
 const resolvedOgImage = ogImage ?? defaultOgImage;
-const fullTitle = title.includes('|') ? title : `${title} | DevBlog`;
+const fullTitle = title.includes('|') ? title : `${title} | RishabhWrites`;
 ---
 
 <!doctype html>
@@ -91,7 +91,7 @@ const fullTitle = title.includes('|') ? title : `${title} | DevBlog`;
     <link
       rel="alternate"
       type="application/rss+xml"
-      title="DevBlog RSS Feed"
+      title="RishabhWrites RSS Feed"
       href="/rss.xml"
     />
   </head>
@@ -109,7 +109,7 @@ const fullTitle = title.includes('|') ? title : `${title} | DevBlog`;
     <footer class="mt-16 py-8 border-t" style="border-color: var(--color-border); color: var(--color-text-muted);">
       <div class="max-w-4xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
         <p>
-          &copy; {new Date().getFullYear()} DevBlog. Built with
+          &copy; {new Date().getFullYear()} RishabhWrites. Built with
           <a
             href="https://astro.build"
             target="_blank"

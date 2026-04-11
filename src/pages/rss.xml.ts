@@ -12,7 +12,7 @@ export async function GET(context: APIContext) {
   );
 
   return rss({
-    title: 'DevBlog',
+    title: 'RishabhWrites',
     description: 'A personal developer blog about software engineering, architecture, and tooling.',
     site: context.site ?? 'https://example.com',
     items: sorted.map((post) => ({

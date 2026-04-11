@@ -1,4 +1,4 @@
-# DevBlog
+# RishabhWrites
 
 A personal developer blog built with Astro, MDX, Tailwind CSS, and Preact. Statically generated, zero runtime JavaScript by default, deployed on Vercel.
 
