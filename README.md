@@ -2,7 +2,8 @@
 
 A personal developer blog built with Astro, MDX, Tailwind CSS, and Preact. Statically generated, zero runtime JavaScript by default, deployed on Vercel.
 
-**Live site:** [rishabh-writes.vercel.app](https://rishabh-writes.vercel.app)
+**Live site:** [rishabh-writes.vercel.app](https://rishabh-writes.vercel.app)  
+**Portfolio:** [rishu827.github.io/portfolio-v3](https://rishu827.github.io/portfolio-v3/)
 
 ## Stack
 
@@ -11,23 +12,27 @@ A personal developer blog built with Astro, MDX, Tailwind CSS, and Preact. Stati
 | Framework | Astro 4 |
 | Content | MDX 3 |
 | Styling | Tailwind CSS 3 + Typography plugin |
+| Fonts | Playfair Display (headings) · Lora (body) via Google Fonts |
 | Syntax highlighting | Shiki (github-light / github-dark-dimmed) |
 | Interactive islands | Preact 10 |
 | Comments | Giscus (GitHub Discussions) |
+| Analytics | Vercel Analytics |
 | Package manager | pnpm 9 |
 | Deployment | Vercel |
 
 ## Features
 
+- **Library / book UI** — posts displayed as 3D books on wooden shelves; hover lifts the book and reveals description
+- **Roman-era library hero** on the homepage with atmospheric CSS columns and arch
 - **MDX content** with Zod-validated frontmatter — build fails on bad fields, not in production
-- **Dark / light / system theme** toggle with no flash of wrong theme on load
+- **Dark / light / system theme** toggle with no flash of wrong theme on load (warm parchment light mode, neutral-charcoal dark mode)
 - **Syntax-highlighted code blocks** with copy-to-clipboard button
 - **Reading time** calculated per post (`ceil(words / 238)`, code blocks at 0.4×)
 - **Table of Contents** sticky sidebar (desktop) with active heading tracking via `IntersectionObserver`
 - **Reading progress bar** pinned below the navbar
-- **Highlight-to-comment** — select any text and comment directly to GitHub Discussions
+- **Highlight-to-comment** — select any text and open a pre-filled GitHub Discussion
 - **Giscus comments** lazy-loaded, theme-synced with the blog
-- **RSS feed** at `/rss.xml`
+- **RSS subscribe popover** — copy feed URL or open in Feedly, Inoreader, or NewsBlur
 - **Sitemap** auto-generated at build
 - **Full SEO** — OG tags, JSON-LD `BlogPosting`, canonical URLs
 - **Draft posts** — visible in dev with a DRAFT badge, completely excluded from production builds
@@ -41,11 +46,14 @@ src/
 ├── components/
 │   ├── BaseLayout.astro        # Wraps all pages — head meta, nav, footer, theme script
 │   ├── PostLayout.astro        # Blog post wrapper — header, ToC, progress bar, Giscus
-│   ├── Navbar.astro            # Site nav with mobile hamburger
-│   ├── PostCard.astro          # Post preview card used in lists
-│   ├── TagBadge.astro          # Clickable tag pill with hash-derived color
+│   ├── Navbar.astro            # Site nav with mobile hamburger and About Me link
+│   ├── PostShelf.astro         # One shelf per post — 3D book + tag labels + wooden plank
+│   ├── BookShelf.astro         # Tag-grouped shelf (used on tag filter pages)
+│   ├── BookCard.astro          # Horizontal book card with hover description reveal
+│   ├── TagBadge.astro          # Clickable tag pill
 │   ├── Pagination.astro        # Prev / Next page links
 │   ├── GiscusComments.astro    # Lazy-loaded GitHub Discussions comments
+│   ├── RSSSubscribe.tsx        # Preact — RSS subscribe popover
 │   ├── ThemeToggle.tsx         # Preact — light/dark/system toggle
 │   ├── TableOfContents.tsx     # Preact — sticky sidebar with scroll tracking
 │   ├── CopyCodeButton.tsx      # Preact — injects copy buttons into code blocks
@@ -55,19 +63,18 @@ src/
 │   ├── config.ts               # Zod schema for blog frontmatter
 │   └── blog/                   # MDX post files live here
 ├── pages/
-│   ├── index.astro             # Home — hero + 5 recent posts
+│   ├── index.astro             # Home — Roman library hero + recent posts on shelves
 │   ├── blog/
-│   │   ├── index.astro         # Blog index (page 1)
-│   │   ├── page/[page].astro   # Blog index pages 2+
+│   │   ├── index.astro         # Full library — all posts as individual shelves
 │   │   └── [...slug].astro     # Individual post
 │   ├── tags/
 │   │   ├── index.astro         # All tags with post counts
-│   │   ├── [tag].astro         # Tag filter page (page 1)
+│   │   ├── [tag].astro         # Tag filter page
 │   │   └── [tag]/page/[page].astro
 │   ├── rss.xml.ts              # RSS 2.0 feed
-│   └── 404.astro               # Custom 404
+│   └── 404.astro               # Custom 404 page
 ├── styles/
-│   └── global.css              # CSS custom properties, Shiki dual-theme, base resets
+│   └── global.css              # CSS custom properties, shelf/book styles, Shiki dual-theme
 └── utils/
     └── readingTime.ts          # Reading time calculation
 ```
@@ -148,7 +155,7 @@ const x = 1;
 | `description` | Yes | 50–160 chars. Used as meta description. |
 | `publishDate` | Yes | ISO 8601 date. Used for sorting and SEO. |
 | `updatedDate` | No | Shown if newer than publishDate. |
-| `author` | No | Defaults to site author. |
+| `author` | No | Defaults to "Rishabh Singhal". |
 | `tags` | No | Lowercase strings, max 5. e.g. `["react", "devops"]` |
 | `coverImage` | No | Absolute URL to image (Cloudinary recommended). |
 | `coverImageAlt` | Cond. | Required when `coverImage` is set. |
@@ -178,14 +185,15 @@ Giscus maps each post to a Discussion thread by pathname. The first comment on a
 
 Preview deployments are created for every pull request.
 
+Analytics are available in the Vercel dashboard under the **Analytics** tab (requires the Analytics integration to be enabled on the project).
+
 ## Routes
 
 | URL | Description |
 |---|---|
-| `/` | Home — hero and 5 recent posts |
-| `/blog` | Paginated post list (10 per page) |
+| `/` | Home — Roman library hero and recent posts on shelves |
+| `/blog` | Full library — all posts as individual shelves |
 | `/blog/[slug]` | Individual post |
-| `/blog/page/2` | Blog index page 2+ |
 | `/tags` | All tags with post counts |
 | `/tags/[tag]` | Posts filtered by tag |
 | `/rss.xml` | RSS 2.0 feed |
