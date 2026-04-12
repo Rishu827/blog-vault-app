@@ -1,0 +1,30 @@
+---
+title: "Why \"Good Enough\" Isn't Good Enough for Your Data: The Power of ACID 🛡️💾"
+description: "This post breaks down ACID—the gold standard of database reliability—and explains how ACID act as the ultimate fail-safe for your engineering stack."
+publishDate: 2026-04-12
+updatedDate: 2026-04-12
+author: "Rishabh Singhal"
+tags: ["backend-development", "software-architecture", "distributed-systems", "reliability-engineering"]
+draft: false
+---
+
+In the world of data engineering and database management, few concepts are as critical—or as frequently cited—as ACID. 
+
+But beyond the acronym, why is it the gold standard for reliable systems? If you’ve ever transferred money online and worried about the funds leaving your account but never arriving at the destination, you already understand why ACID matters.
+
+Here is the breakdown of the properties that guarantee data validity despite errors, crashes, or power failures:
+
+### ⚛️ A - Atomicity (All or Nothing)
+Transactions are treated as a single unit. Either every step succeeds, or the entire transaction fails.
+* **Example:** In a bank transfer, if the debit from Account A works but the credit to Account B fails, the system rolls back everything. No partial updates, no missing money.
+
+### ✅ C - Consistency (Rules are Rules)
+The database must move from one valid state to another, adhering to all defined rules and constraints (like foreign keys).
+* **Example:** If a database rule states all accounts must have a positive balance, a transaction that pushes an account into the negative is rejected immediately to preserve integrity.
+
+### 🏝️ I - Isolation (No Peeking)
+When multiple people access data at once, Isolation ensures their transactions don't interfere with one another.
+* **Example:** If two people try to edit the same data simultaneously, the system processes them as if they happened sequentially, preventing "dirty reads" or miscalculations.
+
+### 💾 D - Durability (Written in Stone)
+Once a transaction is committed, it stays saved—even if the system crashes or the power goes out immediately after. Modern systems write to non-volatile memory to ensure this permanence.

@@ -1,0 +1,59 @@
+---
+title: "Re-use or Re-invent: It’s Fuzzier Than You Think"
+description: "A foundational mental model for deciding when to reuse existing architectures versus reinventing them — guiding objective engineering decisions."
+publishDate: 2026-04-11
+updatedDate: 2026-04-11
+author: "Rishabh Singhal"
+tags: ["system-design", "software-architecture", "domain-driven-design", "engineering-excellence"]
+draft: false
+---
+
+**Author Note:** *This is inspired from the piece I wrote in 2024, during my time as SDE2 at Amazon.*
+
+---
+
+## Overview
+
+> We favor reuse over reinventing, but we will not shy away from re-designing and re-building when necessary.
+
+This document outlines our engineering perspective on whether to reinvent or reuse existing architectures. It serves as a foundational mental model to guide discussions and establish objective architectural guidelines.
+
+Current integration architectures are often multi-tenant, robust, and overly ambitious—sometimes visioned to support any dependent use-case across the entire business domain. As we plan multiple new use-cases and enhancements, it is time to evaluate a critical question: **Can we reuse an existing architecture before reinventing?**
+
+However, this cannot be answered without addressing a more fundamental question: **Should we reuse an existing architecture before reinventing?** The former is a technical question; the latter is a functional and architectural one.
+
+We advocate that no single architecture should attempt to support all integration use-cases across a vast domain. We present four major tenets to resolve the "re-use or re-invent" dilemma for future development.
+
+---
+
+## 1. Distribution of Identity
+
+Identity is a fundamental property of objects, regardless of their specific attributes. In any complex domain, we deal with multiple core entities—such as Users, Organizations, Assets, etc. In a well-architected system, these are managed by dedicated, domain-specific services.
+
+We propose that no single integration service should be responsible for managing interactions across all identities. Following object-oriented design principles, 'identity' is the basis for polymorphism; therefore, the distribution of architectural components should intuitively follow the identities involved.
+
+Because these entities have non-overlapping lifecycles and operations, forcing a consolidated service to manage all integrations creates a severe bottleneck. It requires that single service to interact with all identity components and house complex, disjointed business logic. Most critically, this introduces a single point of failure. **A downtime in a user-onboarding integration should never impact asset acquisition.**
+
+## 2. Separation of Concerns
+
+A service can easily become a tangled monolith if its scope is poorly defined and its concerns are not separated. Separation of concerns must be enforced at the most granular level—services, architectures, and components—before mapping them to the larger framework of team roles and responsibilities. When "Distribution of Identity" is combined with "Separation of Concerns," it becomes clear that no single service should maintain all integration use-cases.
+
+However, just because different engineering teams have distinct charters does not mean every team must build their own independent integration service. In certain cases, the shared identity model takes precedence.
+
+* **An Example of Re-use:** If two distinct product teams require third-party background checks for their respective user bases, and both share the same underlying User Identity model, they should rely on a single, shared verification service. This is a prime example of choosing re-use over re-invention.
+
+## 3. The Horrors of "Not-a-Correct-Abstraction"
+
+> *"Duplication is far cheaper than the wrong abstraction."* — **[Sandi Metz](https://www.linkedin.com/in/sandi-metz-0932a84b/)**
+
+We propose that architectural abstraction should never be driven solely by the desire to eliminate code duplication. Insufficient or forced abstraction leads to massive increases in system complexity, which is far worse than duplication.
+
+Providing a "one-stop" component for basic activities—like data ingestion or API routing—should not be the guiding principle for merging disparate use-cases. Just because a system has a centralized API Gateway does not mean we should force all vendors to route through a single monolithic handler that internally untangles and routes requests to the correct teams. That scenario is a prime candidate for re-inventing a decentralized approach rather than reusing a bottleneck.
+
+If a one-stop-shop integration service exists, it becomes incredibly rigid. Developers are forced to understand unrelated domain functionalities just to safely validate their own changes. Any modification to a base class requires regression testing across entirely separate domains and identities, drastically inflating development effort and the cost of errors.
+
+## 4. Technical Feasibility
+
+Finally, we must evaluate technical feasibility. This encompasses standard engineering questions regarding the development effort required to integrate a new vendor, the extensibility of the service, and the generic nature of the design.
+
+While domain-wide adoption of a single tool is rarely the answer, our individual services must still adhere to best engineering practices. Irrespective of how narrowly a service's domain is scoped, it should remain multi-tenant, generic, and extensible for any future use-cases that share its specific identity model and bounded context.

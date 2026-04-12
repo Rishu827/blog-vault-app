@@ -1,9 +1,9 @@
 ---
 import { getCollection } from 'astro:content';
 import BaseLayout from '../components/BaseLayout.astro';
-import PostCard from '../components/PostCard.astro';
-import { calculateReadingTime } from '../utils/readingTime';
+import PostShelf from '../components/PostShelf.astro';
 import RSSSubscribe from '../components/RSSSubscribe.tsx';
+import { calculateReadingTime } from '../utils/readingTime';
 
 const isDev = import.meta.env.DEV;
 const siteUrl = (import.meta.env.SITE_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://rishabh-writes.vercel.app';
@@ -16,76 +16,221 @@ const allPosts = await getCollection('blog', ({ data }) => {
 
 const posts = allPosts
   .sort((a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf())
-  .slice(0, 5);
+  .slice(0, 8);
+
+// Deterministic book colors from slug hash
+const bookColors = [
+  { cover: '#8B3A2A', spine: '#5c2418' },
+  { cover: '#2A5C45', spine: '#1a3c2d' },
+  { cover: '#1E3A5F', spine: '#122440' },
+  { cover: '#4A2060', spine: '#2e1040' },
+  { cover: '#5C3317', spine: '#3a1f0e' },
+  { cover: '#2D4A30', spine: '#1c301e' },
+  { cover: '#7A1E3A', spine: '#4e1224' },
+  { cover: '#1E4A4A', spine: '#122e2e' },
+];
+
+function getBookColors(slug: string) {
+  let hash = 0;
+  for (const ch of slug) hash = ch.charCodeAt(0) + ((hash << 5) - hash);
+  return bookColors[Math.abs(hash) % bookColors.length];
+}
 ---
 
 <BaseLayout
   title="RishabhWrites | Home"
   description="A personal developer blog about software engineering, architecture, and tooling."
 >
-  <!-- Hero -->
-  <section class="max-w-4xl mx-auto px-4 sm:px-6 pt-16 pb-12">
-    <div class="flex flex-col gap-4">
-      <h1 class="text-4xl sm:text-5xl font-bold leading-tight" style="color: var(--color-heading);">
-        Hi, I'm <span style="color: var(--color-accent);">Rishabh Singhal</span>
+  <!-- ══ Roman Library Hero ══ -->
+  <section class="library-hero">
+    <div class="column-left" aria-hidden="true">
+      <svg viewBox="0 0 64 480" xmlns="http://www.w3.org/2000/svg" width="64" height="480" preserveAspectRatio="none">
+        <rect x="0" y="0" width="64" height="14" rx="2" fill="currentColor" opacity="0.18"/>
+        <rect x="6" y="12" width="52" height="8" rx="1" fill="currentColor" opacity="0.14"/>
+        <path d="M10 20 Q8 240 10 460 L54 460 Q56 240 54 20 Z" fill="currentColor" opacity="0.1"/>
+        <line x1="18" y1="22" x2="18" y2="458" stroke="currentColor" stroke-width="1" opacity="0.06"/>
+        <line x1="26" y1="22" x2="26" y2="458" stroke="currentColor" stroke-width="1" opacity="0.06"/>
+        <line x1="34" y1="22" x2="34" y2="458" stroke="currentColor" stroke-width="1" opacity="0.06"/>
+        <line x1="42" y1="22" x2="42" y2="458" stroke="currentColor" stroke-width="1" opacity="0.06"/>
+        <rect x="6" y="460" width="52" height="10" rx="1" fill="currentColor" opacity="0.14"/>
+        <rect x="0" y="468" width="64" height="12" rx="2" fill="currentColor" opacity="0.18"/>
+      </svg>
+    </div>
+    <div class="column-right" aria-hidden="true">
+      <svg viewBox="0 0 64 480" xmlns="http://www.w3.org/2000/svg" width="64" height="480" preserveAspectRatio="none">
+        <rect x="0" y="0" width="64" height="14" rx="2" fill="currentColor" opacity="0.18"/>
+        <rect x="6" y="12" width="52" height="8" rx="1" fill="currentColor" opacity="0.14"/>
+        <path d="M10 20 Q8 240 10 460 L54 460 Q56 240 54 20 Z" fill="currentColor" opacity="0.1"/>
+        <line x1="18" y1="22" x2="18" y2="458" stroke="currentColor" stroke-width="1" opacity="0.06"/>
+        <line x1="26" y1="22" x2="26" y2="458" stroke="currentColor" stroke-width="1" opacity="0.06"/>
+        <line x1="34" y1="22" x2="34" y2="458" stroke="currentColor" stroke-width="1" opacity="0.06"/>
+        <line x1="42" y1="22" x2="42" y2="458" stroke="currentColor" stroke-width="1" opacity="0.06"/>
+        <rect x="6" y="460" width="52" height="10" rx="1" fill="currentColor" opacity="0.14"/>
+        <rect x="0" y="468" width="64" height="12" rx="2" fill="currentColor" opacity="0.18"/>
+      </svg>
+    </div>
+    <div class="hero-arch" aria-hidden="true"></div>
+
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 pt-14 pb-12 relative z-10 text-center">
+      <p class="hero-eyebrow">Bibliotheca · Est. MMXXVI</p>
+      <h1 class="hero-heading">
+        Welcome to the<br />
+        <span style="color: var(--color-accent);">Reading Room</span>
       </h1>
-      <p class="text-lg max-w-2xl" style="color: var(--color-text-muted);">
-        I write about software engineering, system design, and the tools I use every day.
-        Topics include TypeScript, Rust, Go, DevOps, and more.
+      <p class="hero-subtext">
+        I'm <strong style="color: var(--color-text);">Rishabh Singhal</strong> — I write about software
+        engineering, system design, and the tools I use every day.
       </p>
-      <div class="flex flex-wrap gap-3 mt-2">
-        <a
-          href="/blog"
-          class="px-5 py-2.5 rounded-lg text-sm font-semibold transition-opacity hover:opacity-80"
-          style="background-color: var(--color-accent); color: #fff;"
-        >
-          Read the blog →
-        </a>
+      <div class="hero-actions">
+        <a href="/blog" class="hero-btn-primary">Enter the Library →</a>
         <RSSSubscribe feedUrl={feedUrl} client:load />
       </div>
+      <div class="ornament mt-8" aria-hidden="true">✦ &nbsp; ✦ &nbsp; ✦</div>
     </div>
   </section>
 
-  <!-- Recent posts -->
-  <section class="max-w-4xl mx-auto px-4 sm:px-6 pb-16">
-    <h2 class="text-xl font-bold mb-6" style="color: var(--color-heading);">
-      Recent Posts
-    </h2>
+  <!-- ══ Recent shelves ══ -->
+  <section class="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+    <div class="shelf-section-header">
+      <p class="shelf-section-eyebrow">Recently added</p>
+      <h2 class="shelf-section-title">New Arrivals</h2>
+    </div>
 
     {posts.length === 0 ? (
       <p style="color: var(--color-text-muted);">No posts yet. Check back soon!</p>
     ) : (
-      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-1">
-        {posts.map((post) => {
-          const slug = post.data.slug ?? post.slug;
-          const readingTime = calculateReadingTime(post.body);
-          return (
-            <PostCard
-              title={post.data.title}
-              slug={slug}
-              description={post.data.description}
-              publishDate={post.data.publishDate}
-              readingTime={readingTime}
-              tags={post.data.tags}
-              coverImage={post.data.coverImage}
-              coverImageAlt={post.data.coverImageAlt}
-              draft={post.data.draft}
-            />
-          );
-        })}
-      </div>
+      posts.map((post) => {
+        const slug = post.data.slug ?? post.slug;
+        const { cover, spine } = getBookColors(slug);
+        return (
+          <PostShelf
+            title={post.data.title}
+            slug={slug}
+            description={post.data.description}
+            publishDate={post.data.publishDate}
+            readingTime={calculateReadingTime(post.body)}
+            tags={post.data.tags}
+            coverColor={cover}
+            spineColor={spine}
+            draft={post.data.draft}
+          />
+        );
+      })
     )}
 
-    {allPosts.length > 5 && (
-      <div class="mt-8 text-center">
-        <a
-          href="/blog"
-          class="inline-block px-5 py-2.5 rounded-lg border text-sm font-medium transition-colors hover:opacity-80"
-          style="border-color: var(--color-border); color: var(--color-text);"
-        >
-          View all posts →
-        </a>
+    {allPosts.length > 8 && (
+      <div class="mt-4">
+        <a href="/blog" class="view-all-link">Browse the full library →</a>
       </div>
     )}
   </section>
 </BaseLayout>
+
+<style>
+  .column-left,
+  .column-right {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 64px;
+    color: var(--color-heading);
+    pointer-events: none;
+    display: flex;
+    align-items: stretch;
+  }
+  .column-left { left: 0; }
+  .column-right { right: 0; }
+
+  .hero-arch {
+    position: absolute;
+    top: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 70%;
+    max-width: 600px;
+    height: 120px;
+    border: 2px solid var(--color-ornament);
+    border-bottom: none;
+    border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+    opacity: 0.18;
+    pointer-events: none;
+  }
+
+  .hero-eyebrow {
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--color-ornament);
+    margin-bottom: 1rem;
+    font-family: 'Lora', Georgia, serif;
+  }
+
+  .hero-heading {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: clamp(2rem, 5vw, 3.25rem);
+    font-weight: 700;
+    line-height: 1.18;
+    color: var(--color-heading);
+    margin-bottom: 1.25rem;
+  }
+
+  .hero-subtext {
+    font-family: 'Lora', Georgia, serif;
+    font-size: 1rem;
+    line-height: 1.8;
+    color: var(--color-text-muted);
+    max-width: 34rem;
+    margin: 0 auto 1.5rem;
+  }
+
+  .hero-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .hero-btn-primary {
+    padding: 0.65rem 1.4rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    background-color: var(--color-accent);
+    color: #fff;
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+  .hero-btn-primary:hover { opacity: 0.85; }
+
+  .shelf-section-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .shelf-section-eyebrow {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--color-ornament);
+    margin-bottom: 4px;
+  }
+
+  .shelf-section-title {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--color-heading);
+    margin: 0;
+    border: none;
+    padding: 0;
+  }
+
+  .view-all-link {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-accent);
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+  .view-all-link:hover { opacity: 0.7; }
+</style>

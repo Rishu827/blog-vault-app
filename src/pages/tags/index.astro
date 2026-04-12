@@ -27,10 +27,11 @@ const tags = [...tagMap.entries()].sort(([a], [b]) => a.localeCompare(b));
   description="Browse all topics covered on RishabhWrites."
 >
   <div class="max-w-4xl mx-auto px-4 sm:px-6 py-10">
-    <header class="mb-8">
-      <h1 class="text-3xl font-bold" style="color: var(--color-heading);">Tags</h1>
+    <header class="mb-8 pb-8 border-b" style="border-color: var(--color-border);">
+      <p class="text-xs uppercase tracking-widest font-semibold mb-2" style="color: var(--color-ornament);">Browse by subject</p>
+      <h1 class="text-3xl font-bold" style="color: var(--color-heading); font-family: 'Playfair Display', Georgia, serif;">Tags</h1>
       <p class="mt-2 text-sm" style="color: var(--color-text-muted);">
-        {tags.length} {tags.length === 1 ? 'topic' : 'topics'}
+        {tags.length} {tags.length === 1 ? 'topic' : 'topics'} in the index
       </p>
     </header>
 

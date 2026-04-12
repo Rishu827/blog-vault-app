@@ -81,7 +81,22 @@ const jsonLd = {
   <!-- Reading progress bar -->
   <ReadingProgress client:load />
 
-  <div class="max-w-[90rem] mx-auto px-4 sm:px-6 py-10">
+  <!-- Back breadcrumb -->
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 pt-6 pb-0">
+    <a
+      href="/blog"
+      class="inline-flex items-center gap-1.5 text-xs hover:opacity-70 transition-opacity"
+      style="color: var(--color-text-muted);"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+      </svg>
+      Back to the Library
+    </a>
+  </div>
+
+  <div class="max-w-[90rem] mx-auto px-4 sm:px-6 py-8">
     <div class="xl:grid xl:grid-cols-[1fr_220px] xl:gap-16 max-w-3xl xl:max-w-none mx-auto xl:mx-0">
 
       <!-- Article -->
@@ -101,50 +116,49 @@ const jsonLd = {
 
         <header class="mb-10">
           {draft && (
-            <span class="inline-block mb-3 text-xs font-bold px-2.5 py-1 rounded bg-yellow-200 text-yellow-900 dark:bg-yellow-800 dark:text-yellow-200">
+            <span class="inline-block mb-3 text-xs font-bold px-2.5 py-1 rounded" style="background-color: #fef3c7; color: #92400e;">
               DRAFT — Not published
             </span>
           )}
 
-          <h1 id="post-title" class="text-3xl sm:text-4xl font-bold leading-tight mb-5" style="color: var(--color-heading);">
-            {title}
-          </h1>
-
-          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm mb-5 pb-5 border-b" style="color: var(--color-text-muted); border-color: var(--color-border);">
-            <span class="font-medium" style="color: var(--color-text);">{author}</span>
-            <span aria-hidden="true">·</span>
-            <time datetime={publishDate.toISOString()}>{formattedDate}</time>
-            <span aria-hidden="true">·</span>
-            <span>{readingTime} min read</span>
-            {formattedUpdated && (
-              <>
-                <span aria-hidden="true">·</span>
-                <span>Updated <time datetime={updatedDate!.toISOString()}>{formattedUpdated}</time></span>
-              </>
-            )}
-          </div>
-
           {tags.length > 0 && (
-            <div class="flex flex-wrap gap-2" role="list" aria-label="Post tags">
+            <div class="flex flex-wrap gap-2 mb-4" role="list" aria-label="Post tags">
               {tags.map((tag) => (
                 <div role="listitem"><TagBadge tag={tag} /></div>
               ))}
             </div>
           )}
+
+          <h1 id="post-title" class="text-3xl sm:text-4xl font-bold leading-tight mb-5" style="color: var(--color-heading); font-family: 'Playfair Display', Georgia, serif;">
+            {title}
+          </h1>
+
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm mb-6 pb-6 border-b" style="color: var(--color-text-muted); border-color: var(--color-border);">
+            <span class="font-medium" style="color: var(--color-text);">{author}</span>
+            <span aria-hidden="true" style="color: var(--color-ornament);">·</span>
+            <time datetime={publishDate.toISOString()}>{formattedDate}</time>
+            <span aria-hidden="true" style="color: var(--color-ornament);">·</span>
+            <span>{readingTime} min read</span>
+            {formattedUpdated && (
+              <>
+                <span aria-hidden="true" style="color: var(--color-ornament);">·</span>
+                <span>Updated <time datetime={updatedDate!.toISOString()}>{formattedUpdated}</time></span>
+              </>
+            )}
+          </div>
         </header>
 
         <!-- Article body — id used by ReadingProgress and SelectionComment -->
         <div
           id="article-body"
-          class="relative prose prose-slate dark:prose-invert max-w-none
+          class="relative prose max-w-none
             prose-p:leading-8 prose-p:text-[1.0625rem]
             prose-headings:scroll-mt-[calc(var(--navbar-height)+1.5rem)]
             prose-headings:font-bold
             prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-4
             prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-3
             prose-li:leading-7
-            prose-blockquote:not-italic prose-blockquote:border-l-4
-            selection:bg-blue-200 dark:selection:bg-blue-800 selection:text-inherit"
+            prose-blockquote:not-italic prose-blockquote:border-l-4"
         >
           <slot />
 
@@ -161,6 +175,8 @@ const jsonLd = {
         </div>
 
         <CopyCodeButton client:visible />
+
+        <div class="ornament mt-14 mb-2" aria-hidden="true">✦ &nbsp; ✦ &nbsp; ✦</div>
 
         <GiscusComments />
       </article>

@@ -1,11 +1,9 @@
 ---
 import { getCollection } from 'astro:content';
 import BaseLayout from '../../components/BaseLayout.astro';
-import PostCard from '../../components/PostCard.astro';
-import Pagination from '../../components/Pagination.astro';
+import PostShelf from '../../components/PostShelf.astro';
 import { calculateReadingTime } from '../../utils/readingTime';
 
-const PAGE_SIZE = 10;
 const isDev = import.meta.env.DEV;
 
 const allPosts = await getCollection('blog', ({ data }) => {
@@ -13,11 +11,27 @@ const allPosts = await getCollection('blog', ({ data }) => {
   return !data.draft && data.publishDate <= new Date();
 });
 
-const posts = allPosts
-  .sort((a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf());
+const posts = allPosts.sort(
+  (a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf()
+);
 
-const totalPages = Math.ceil(posts.length / PAGE_SIZE);
-const pagePosts = posts.slice(0, PAGE_SIZE);
+// Deterministic book colors from slug hash
+const bookColors = [
+  { cover: '#8B3A2A', spine: '#5c2418' },
+  { cover: '#2A5C45', spine: '#1a3c2d' },
+  { cover: '#1E3A5F', spine: '#122440' },
+  { cover: '#4A2060', spine: '#2e1040' },
+  { cover: '#5C3317', spine: '#3a1f0e' },
+  { cover: '#2D4A30', spine: '#1c301e' },
+  { cover: '#7A1E3A', spine: '#4e1224' },
+  { cover: '#1E4A4A', spine: '#122e2e' },
+];
+
+function getBookColors(slug: string) {
+  let hash = 0;
+  for (const ch of slug) hash = ch.charCodeAt(0) + ((hash << 5) - hash);
+  return bookColors[Math.abs(hash) % bookColors.length];
+}
 ---
 
 <BaseLayout
@@ -25,37 +39,68 @@ const pagePosts = posts.slice(0, PAGE_SIZE);
   description="All posts on software engineering, architecture, and tooling."
 >
   <div class="max-w-4xl mx-auto px-4 sm:px-6 py-10">
-    <header class="mb-8">
-      <h1 class="text-3xl font-bold" style="color: var(--color-heading);">Blog</h1>
-      <p class="mt-2 text-sm" style="color: var(--color-text-muted);">
-        {posts.length} {posts.length === 1 ? 'post' : 'posts'} total
+
+    <header class="library-header">
+      <p class="library-eyebrow">The Archive</p>
+      <h1 class="library-title">The Library</h1>
+      <p class="library-subtitle">
+        {posts.length} {posts.length === 1 ? 'volume' : 'volumes'} in the collection
       </p>
     </header>
 
-    {pagePosts.length === 0 ? (
+    {posts.length === 0 ? (
       <p style="color: var(--color-text-muted);">No posts published yet.</p>
     ) : (
-      <div class="flex flex-col gap-5">
-        {pagePosts.map((post) => {
-          const slug = post.data.slug ?? post.slug;
-          const readingTime = calculateReadingTime(post.body);
-          return (
-            <PostCard
-              title={post.data.title}
-              slug={slug}
-              description={post.data.description}
-              publishDate={post.data.publishDate}
-              readingTime={readingTime}
-              tags={post.data.tags}
-              coverImage={post.data.coverImage}
-              coverImageAlt={post.data.coverImageAlt}
-              draft={post.data.draft}
-            />
-          );
-        })}
-      </div>
+      posts.map((post) => {
+        const slug = post.data.slug ?? post.slug;
+        const { cover, spine } = getBookColors(slug);
+        return (
+          <PostShelf
+            title={post.data.title}
+            slug={slug}
+            description={post.data.description}
+            publishDate={post.data.publishDate}
+            readingTime={calculateReadingTime(post.body)}
+            tags={post.data.tags}
+            coverColor={cover}
+            spineColor={spine}
+            draft={post.data.draft}
+          />
+        );
+      })
     )}
 
-    <Pagination currentPage={1} totalPages={totalPages} basePath="/blog" />
   </div>
 </BaseLayout>
+
+<style>
+  .library-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .library-eyebrow {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--color-ornament);
+    margin-bottom: 6px;
+  }
+
+  .library-title {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--color-heading);
+    margin: 0 0 6px;
+    border: none;
+    padding: 0;
+  }
+
+  .library-subtitle {
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    margin: 0;
+  }
+</style>

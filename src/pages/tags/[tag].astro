@@ -44,20 +44,20 @@ const pagePosts = posts.slice(0, PAGE_SIZE);
   description={`All posts tagged with #${tag}.`}
 >
   <div class="max-w-4xl mx-auto px-4 sm:px-6 py-10">
-    <header class="mb-8">
-      <a href="/tags" class="text-sm hover:underline mb-3 inline-block" style="color: var(--color-text-muted);">
+    <header class="mb-8 pb-8 border-b" style="border-color: var(--color-border);">
+      <a href="/tags" class="text-xs uppercase tracking-widest font-semibold hover:opacity-70 transition-opacity mb-3 inline-block" style="color: var(--color-ornament);">
         ← All tags
       </a>
-      <h1 class="text-3xl font-bold" style="color: var(--color-heading);">#{tag}</h1>
+      <h1 class="text-3xl font-bold" style="color: var(--color-heading); font-family: 'Playfair Display', Georgia, serif;">#{tag}</h1>
       <p class="mt-2 text-sm" style="color: var(--color-text-muted);">
-        {posts.length} {posts.length === 1 ? 'post' : 'posts'}
+        {posts.length} {posts.length === 1 ? 'entry' : 'entries'}
       </p>
     </header>
 
     {pagePosts.length === 0 ? (
       <p style="color: var(--color-text-muted);">No posts with this tag.</p>
     ) : (
-      <div class="flex flex-col gap-5">
+      <div class="flex flex-col">
         {pagePosts.map((post) => {
           const slug = post.data.slug ?? post.slug;
           const readingTime = calculateReadingTime(post.body);

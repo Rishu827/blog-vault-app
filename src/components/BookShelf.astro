@@ -1,0 +1,56 @@
+---
+import BookCard from './BookCard.astro';
+
+export interface ShelfPost {
+  title: string;
+  slug: string;
+  description: string;
+  publishDate: Date;
+  readingTime: number;
+  spineColor: string;
+}
+
+export interface Props {
+  tag: string;
+  posts: ShelfPost[];
+  showTagLink?: boolean;
+}
+
+const { tag, posts, showTagLink = true } = Astro.props;
+---
+
+<section class="shelf-section">
+  <div class="shelf-header">
+    <span class="shelf-mark" aria-hidden="true">§</span>
+    <h2 class="shelf-title">#{tag}</h2>
+    {showTagLink && (
+      <a href={`/tags/${tag}`} class="shelf-see-all">See all →</a>
+    )}
+  </div>
+
+  <div class="bookshelf">
+    <div class="books-stack">
+      {posts.map((post) => (
+        <BookCard
+          title={post.title}
+          slug={post.slug}
+          description={post.description}
+          publishDate={post.publishDate}
+          readingTime={post.readingTime}
+          spineColor={post.spineColor}
+        />
+      ))}
+    </div>
+    <div class="shelf-plank" aria-hidden="true"></div>
+  </div>
+</section>
+
+<style>
+  /* Override books-row for vertical stack */
+  .books-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 1rem 0 0;
+  }
+</style>

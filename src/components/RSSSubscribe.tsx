@@ -64,7 +64,7 @@ export default function RSSSubscribe({ feedUrl }: Props) {
       {open && (
         <div
           role="menu"
-          class="absolute left-0 mt-2 rounded-xl border shadow-lg overflow-hidden z-50"
+          class="absolute right-0 mt-2 rounded-xl border shadow-lg overflow-hidden z-50"
           style="min-width: 240px; background-color: var(--color-bg-card); border-color: var(--color-border);"
         >
           {/* Feed URL row */}

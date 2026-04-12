@@ -1,0 +1,307 @@
+---
+import TagBadge from './TagBadge.astro';
+
+export interface Props {
+  title: string;
+  slug: string;
+  description: string;
+  publishDate: Date;
+  readingTime: number;
+  tags: string[];
+  coverColor: string;
+  spineColor: string;
+  draft?: boolean;
+}
+
+const {
+  title,
+  slug,
+  description,
+  publishDate,
+  readingTime,
+  tags,
+  coverColor,
+  spineColor,
+  draft = false,
+} = Astro.props;
+
+const formattedDate = publishDate.toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+---
+
+<article class="post-shelf">
+
+  <!-- ── Tag labels row (shelf section label) ── -->
+  <div class="shelf-tags-row">
+    {draft && (
+      <span class="draft-badge">DRAFT</span>
+    )}
+    {tags.length > 0 ? (
+      tags.map((tag) => <TagBadge tag={tag} />)
+    ) : (
+      <span class="no-tag">uncategorised</span>
+    )}
+  </div>
+
+  <!-- ── Shelf surface: 3-D book + info ── -->
+  <div class="shelf-surface">
+
+    <!-- 3-D book (visual only, the info link is the primary target) -->
+    <a
+      href={`/blog/${slug}`}
+      class="book-3d"
+      aria-hidden="true"
+      tabindex="-1"
+      style={`--cover: ${coverColor}; --spine: ${spineColor};`}
+    >
+      <div class="b-spine"></div>
+      <div class="b-cover">
+        <span class="b-title-text">{title}</span>
+      </div>
+    </a>
+
+    <!-- Info panel -->
+    <a href={`/blog/${slug}`} class="shelf-info" aria-label={`Read: ${title}`}>
+      <h3 class="shelf-info-title">{title}</h3>
+      <p class="shelf-info-meta">
+        <time datetime={publishDate.toISOString()}>{formattedDate}</time>
+        <span class="dot" aria-hidden="true">·</span>
+        <span>{readingTime} min read</span>
+      </p>
+      <p class="shelf-info-desc">{description}</p>
+      <span class="shelf-info-cta">Open →</span>
+    </a>
+
+  </div>
+
+  <!-- ── Wooden shelf plank ── -->
+  <div class="shelf-plank" aria-hidden="true"></div>
+
+</article>
+
+<style>
+  /* ── Shelf wrapper ── */
+  .post-shelf {
+    margin-bottom: 1.75rem;
+  }
+
+  /* ── Tag labels ── */
+  .shelf-tags-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 0 4px 8px;
+  }
+
+  .draft-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background-color: #fef3c7;
+    color: #92400e;
+  }
+
+  .no-tag {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
+  /* ── Shelf surface ── */
+  .shelf-surface {
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+    padding: 18px 12px 0;
+    border-radius: 6px 6px 0 0;
+  }
+
+  /* ── 3-D Book ── */
+  .book-3d {
+    display: flex;
+    align-items: stretch;
+    flex-shrink: 0;
+    height: 148px;
+    text-decoration: none;
+    transform: perspective(700px) rotateY(-22deg);
+    filter: drop-shadow(3px 7px 12px rgba(0, 0, 0, 0.38));
+    transition:
+      transform 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      filter 0.38s ease;
+  }
+
+  /* Book animates when hovering anywhere on the shelf surface */
+  .shelf-surface:hover .book-3d {
+    transform: perspective(700px) rotateY(-42deg) translateY(-8px);
+    filter: drop-shadow(5px 12px 20px rgba(0, 0, 0, 0.5));
+  }
+
+  .b-spine {
+    width: 18px;
+    flex-shrink: 0;
+    background-color: var(--spine);
+    background-image: linear-gradient(to right, rgba(0,0,0,0.25), rgba(0,0,0,0.08) 60%, rgba(255,255,255,0.04));
+    border-radius: 2px 0 0 2px;
+  }
+
+  .b-cover {
+    width: 105px;
+    background-color: var(--cover);
+    background-image: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.14) 0%,
+      transparent 38%,
+      rgba(0, 0, 0, 0.08) 100%
+    );
+    border-radius: 0 4px 4px 0;
+    padding: 14px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Right-edge pages illusion */
+  .b-cover::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    right: -3px;
+    bottom: 2px;
+    width: 4px;
+    background: linear-gradient(to right, #d8d0bc, #f0ead8, #d8d0bc);
+    border-radius: 0 2px 2px 0;
+    opacity: 0.85;
+  }
+
+  .b-title-text {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.92);
+    text-align: center;
+    line-height: 1.45;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 7;
+    -webkit-box-orient: vertical;
+  }
+
+  /* ── Info panel ── */
+  .shelf-info {
+    flex: 1;
+    min-width: 0;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-bottom: 12px;
+    cursor: pointer;
+  }
+
+  .shelf-info-title {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-heading);
+    margin: 0;
+    line-height: 1.35;
+    transition: color 0.15s;
+  }
+
+  .shelf-surface:hover .shelf-info-title {
+    color: var(--color-accent);
+  }
+
+  .shelf-info-meta {
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .dot {
+    color: var(--color-ornament);
+  }
+
+  /* Description: hidden by default, slides in on hover */
+  .shelf-info-desc {
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: var(--color-text-muted);
+    margin: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.32s ease, opacity 0.32s ease;
+    opacity: 0;
+  }
+
+  .shelf-surface:hover .shelf-info-desc {
+    max-height: 6rem;
+    opacity: 1;
+  }
+
+  .shelf-info-cta {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--color-accent);
+    margin-top: 2px;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    display: inline-block;
+  }
+
+  .shelf-surface:hover .shelf-info-cta {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  /* ── Wooden shelf plank ── */
+  .shelf-plank {
+    height: 15px;
+    background: linear-gradient(180deg, #b8895a 0%, #9e7245 25%, #8a6035 70%, #6e4c24 100%);
+    border-radius: 2px;
+    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.36), 0 2px 4px rgba(0, 0, 0, 0.2);
+    position: relative;
+  }
+
+  .shelf-plank::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 42px,
+      rgba(0, 0, 0, 0.04) 42px,
+      rgba(0, 0, 0, 0.04) 44px
+    );
+    border-radius: 2px;
+  }
+
+  .shelf-plank::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.14);
+    border-radius: 2px 2px 0 0;
+  }
+
+  :global(.dark) .shelf-plank {
+    background: linear-gradient(180deg, #8a6035 0%, #7a5028 25%, #6b4020 70%, #542e12 100%);
+    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.55), 0 2px 5px rgba(0, 0, 0, 0.35);
+  }
+</style>

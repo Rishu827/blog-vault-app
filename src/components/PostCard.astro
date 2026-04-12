@@ -33,19 +33,20 @@ const formattedDate = publishDate.toLocaleDateString('en-US', {
 ---
 
 <article
-  class="group rounded-xl border p-5 transition-shadow hover:shadow-md flex flex-col gap-3"
-  style="border-color: var(--color-border); background-color: var(--color-bg-card);"
+  class="group flex flex-col sm:flex-row gap-5 py-7 border-b"
+  style="border-color: var(--color-border);"
 >
   {coverImage && (
-    <a href={`/blog/${slug}`} tabindex="-1" aria-hidden="true">
+    <a href={`/blog/${slug}`} tabindex="-1" aria-hidden="true" class="sm:flex-shrink-0">
       <img
         src={coverImage}
         alt={coverImageAlt ?? ''}
-        class="w-full h-40 object-cover rounded-lg mb-1"
+        class="w-full sm:w-36 h-28 object-cover rounded"
         loading="lazy"
         decoding="async"
-        width="600"
-        height="160"
+        width="144"
+        height="112"
+        style="border: 1px solid var(--color-border);"
       />
     </a>
   )}
@@ -53,14 +54,14 @@ const formattedDate = publishDate.toLocaleDateString('en-US', {
   <div class="flex-1 flex flex-col gap-2">
     <div class="flex items-center gap-2 flex-wrap">
       {draft && (
-        <span class="text-xs font-bold px-2 py-0.5 rounded bg-yellow-200 text-yellow-900 dark:bg-yellow-800 dark:text-yellow-200">
+        <span class="text-xs font-bold px-2 py-0.5 rounded" style="background-color: #fef3c7; color: #92400e;">
           DRAFT
         </span>
       )}
       {tags.slice(0, 3).map((tag) => <TagBadge tag={tag} />)}
     </div>
 
-    <h2 class="text-lg font-bold leading-snug m-0">
+    <h2 class="text-xl font-bold leading-snug m-0" style="font-family: 'Playfair Display', Georgia, serif;">
       <a
         href={`/blog/${slug}`}
         class="hover:underline"
@@ -70,22 +71,22 @@ const formattedDate = publishDate.toLocaleDateString('en-US', {
       </a>
     </h2>
 
-    <p class="text-sm line-clamp-2 m-0" style="color: var(--color-text-muted);">
+    <p class="text-sm leading-relaxed m-0" style="color: var(--color-text-muted);">
       {description}
     </p>
-  </div>
 
-  <footer class="flex items-center gap-3 text-xs mt-1" style="color: var(--color-text-muted);">
-    <time datetime={publishDate.toISOString()}>{formattedDate}</time>
-    <span aria-hidden="true">·</span>
-    <span>{readingTime} min read</span>
-    <a
-      href={`/blog/${slug}`}
-      class="ml-auto text-xs font-medium hover:underline"
-      style="color: var(--color-accent);"
-      aria-label={`Read ${title}`}
-    >
-      Read →
-    </a>
-  </footer>
+    <footer class="flex items-center gap-3 text-xs mt-auto pt-1" style="color: var(--color-text-muted);">
+      <time datetime={publishDate.toISOString()}>{formattedDate}</time>
+      <span aria-hidden="true" style="color: var(--color-ornament);">·</span>
+      <span>{readingTime} min read</span>
+      <a
+        href={`/blog/${slug}`}
+        class="ml-auto text-xs font-medium hover:underline"
+        style="color: var(--color-accent);"
+        aria-label={`Read ${title}`}
+      >
+        Read →
+      </a>
+    </footer>
+  </div>
 </article>

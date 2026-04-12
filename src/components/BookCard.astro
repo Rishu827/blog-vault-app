@@ -1,0 +1,119 @@
+---
+export interface Props {
+  title: string;
+  slug: string;
+  description: string;
+  publishDate: Date;
+  readingTime: number;
+  spineColor: string;
+}
+
+const { title, slug, description, publishDate, readingTime, spineColor } = Astro.props;
+
+const formattedDate = publishDate.toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+});
+---
+
+<a href={`/blog/${slug}`} class="book-entry" aria-label={title}>
+  <div class="book-spine" style={`background-color: ${spineColor};`}></div>
+
+  <div class="book-body">
+    <h3 class="book-title">{title}</h3>
+    <p class="book-meta">
+      <time datetime={publishDate.toISOString()}>{formattedDate}</time>
+      <span aria-hidden="true" class="dot">·</span>
+      <span>{readingTime} min read</span>
+    </p>
+    <p class="book-desc">{description}</p>
+  </div>
+
+  <div class="book-arrow" aria-hidden="true">→</div>
+</a>
+
+<style>
+  .book-entry {
+    display: flex;
+    align-items: stretch;
+    text-decoration: none;
+    border: 1px solid var(--color-border);
+    border-radius: 5px;
+    overflow: hidden;
+    background-color: var(--color-bg-card);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.15s;
+  }
+
+  .book-entry:hover {
+    transform: translateX(5px);
+    box-shadow: 0 3px 14px rgba(0, 0, 0, 0.16);
+    background-color: var(--color-bg-secondary);
+  }
+
+  .book-spine {
+    width: 8px;
+    flex-shrink: 0;
+    align-self: stretch;
+  }
+
+  .book-body {
+    flex: 1;
+    padding: 13px 16px;
+    min-width: 0;
+  }
+
+  .book-title {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-heading);
+    margin: 0 0 5px;
+    line-height: 1.4;
+  }
+
+  .book-meta {
+    font-size: 0.71rem;
+    color: var(--color-text-muted);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .dot {
+    color: var(--color-ornament);
+  }
+
+  /* Description hidden by default, slides in on hover */
+  .book-desc {
+    font-size: 0.79rem;
+    color: var(--color-text-muted);
+    line-height: 1.55;
+    margin: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.28s ease, margin-top 0.28s ease;
+  }
+
+  .book-entry:hover .book-desc {
+    max-height: 6rem;
+    margin-top: 9px;
+  }
+
+  .book-arrow {
+    padding: 13px 16px;
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: flex-start;
+    padding-top: 15px;
+    flex-shrink: 0;
+    transition: color 0.15s, transform 0.15s;
+  }
+
+  .book-entry:hover .book-arrow {
+    color: var(--color-accent);
+    transform: translateX(3px);
+  }
+</style>
