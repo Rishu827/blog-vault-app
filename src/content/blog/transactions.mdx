@@ -1,0 +1,211 @@
+---
+title: "Transactions: The Art of All or Nothing"
+description: "A deep dive into database transactions - the beauty and the nightmare."
+publishDate: 2026-04-18
+updatedDate: 2026-04-18
+author: "Rishabh Singhal"
+tags: ["backend-development", "databases", "system-design", "distributed-systems"]
+draft: false
+---
+
+A **Transaction** is a set of operations executed as a single unit of work. Its governing rule is deceptively simple:
+
+> **All or Nothing.**
+
+Either every operation in the transaction succeeds and the changes are made permanent, or something goes wrong and the entire thing is undone as if it never happened. No partial results. No half-written state. No loose ends.
+
+Simple in principle. Surprisingly deep in practice.
+
+---
+
+## The Need for Transactions
+
+To understand why transactions exist, consider what happens *without* them.
+
+Imagine a banking system. Alice wants to send ₹5,000 to Bob. Under the hood, this is two operations:
+
+1. Deduct ₹5,000 from Alice's account
+2. Add ₹5,000 to Bob's account
+
+Now imagine, right after step 1 but before step 2, the server crashes or the network drops, or a disk write fails.
+
+Alice's money is gone. Bob never received it. The system is now in an *inconsistent state* that no business rule ever intended.
+
+This is called a **partial failure**, and it's one of three fundamental problems that transactions solve:
+
+### 1. Partial Failures
+Real systems fail mid-operation. Disks fill up, power cuts, processes get killed. Without a mechanism to either complete or fully undo a set of operations, any crash leaves the database in an unpredictable, often corrupt state.
+
+### 2. Concurrent Access
+Modern applications have thousands of concurrent users reading and writing the same data simultaneously. Without isolation between operations, you get race conditions.
+
+Consider two people booking the last seat on a flight at the same time. Both read that one seat is available. Both proceed to book it. Both succeed. Now you have two confirmed bookings for one seat, a classic **lost update** problem.
+
+### 3. Cascading Integrity Violations
+Operations are rarely independent. Inserting an order without its corresponding line items, or deleting a user while leaving orphaned records behind, violates referential integrity. A transaction ensures that logically related operations either all happen together or not at all.
+
+---
+
+## Principles Behind Transactions: ACID
+
+The guarantees that transactions provide are formalized under the acronym **ACID**. I've covered each property in detail in [The Power of ACID](https://rishabh-writes.vercel.app/blog/power-of-acid), but here's how they map directly onto transaction behavior:
+
+### Atomicity — The "All or Nothing" Guarantee
+A transaction is indivisible. The database treats the entire set of operations as a single atom. If any step fails for any reason the database rolls back every change made so far in that transaction, restoring the previous state.
+
+This is what makes the bank transfer safe. Either Alice is debited *and* Bob is credited, or neither happens.
+
+### Consistency — Rules Don't Break
+A transaction can only bring the database from one *valid state* to another *valid state*. All constraints, foreign keys, and invariants must hold at the end of every committed transaction.
+
+If a constraint would be violated say, a balance dropping below zero; the transaction is rejected. The database refuses to commit an inconsistent state.
+
+### Isolation — Transactions Don't See Each Other's Work
+Concurrent transactions behave *as if* they run sequentially, even when they don't. Isolation prevents one transaction from reading uncommitted or in-progress changes made by another.
+
+The strength of this guarantee is tunable, databases offer **isolation levels** (Read Uncommitted → Read Committed → Repeatable Read → Serializable) that trade consistency for concurrency. Serializable is the strongest; it guarantees the outcome is identical to running transactions one at a time.
+
+### Durability — Committed Means Permanent
+Once a transaction is committed, its changes survive. A power failure, crash, or restart immediately after a commit cannot undo it. Databases achieve this through mechanisms like the **Write-Ahead Log (WAL)** where changes are written to a persistent log before they're applied to the actual data pages.
+
+---
+
+## Core Transaction Operations
+
+Every SQL database exposes transactions through a handful of explicit commands:
+
+### `BEGIN` — Start a Transaction
+```sql
+BEGIN;
+-- or
+START TRANSACTION;
+```
+All statements after this point are part of the transaction until it is explicitly committed or rolled back. Without a `BEGIN`, most databases auto-commit each statement individually, each one is its own single-statement transaction.
+
+### `COMMIT` — Make Changes Permanent
+```sql
+COMMIT;
+```
+This seals the transaction. All changes become visible to other transactions and are written durably to disk. Once committed, there is no going back.
+
+### `ROLLBACK` — Undo Everything
+```sql
+ROLLBACK;
+```
+Discards every change made since `BEGIN`. The database returns to exactly the state it was in before the transaction started. Triggered explicitly in application code, or automatically by the database on error or deadlock.
+
+### `SAVEPOINT` — Partial Rollback Points
+```sql
+SAVEPOINT my_checkpoint;
+
+-- ... more operations ...
+
+ROLLBACK TO SAVEPOINT my_checkpoint; -- undo back to this point only
+RELEASE SAVEPOINT my_checkpoint;     -- discard the savepoint
+```
+Savepoints allows creating checkpoints *within* a transaction. Useful for complex operations where you want to retry part of the logic without abandoning the entire transaction. Think of it as a `try/catch` block inside your database work.
+
+---
+
+## A Working Example
+
+Let's walk through the bank transfer with proper transaction handling.
+
+**Schema:**
+```sql
+CREATE TABLE accounts (
+  id     SERIAL PRIMARY KEY,
+  name   VARCHAR(100) NOT NULL,
+  balance NUMERIC(12, 2) NOT NULL CHECK (balance >= 0)
+);
+
+INSERT INTO accounts (name, balance) VALUES ('Alice', 10000.00);
+INSERT INTO accounts (name, balance) VALUES ('Bob',    2000.00);
+```
+
+**The Transfer:**
+```sql
+BEGIN;
+
+-- Step 1: Deduct from Alice
+UPDATE accounts
+SET balance = balance - 5000
+WHERE name = 'Alice';
+
+-- Step 2: Credit to Bob
+UPDATE accounts
+SET balance = balance + 5000
+WHERE name = 'Bob';
+
+-- Step 3: Verify the constraint holds (optional but good practice)
+-- If Alice's balance < 0, the CHECK constraint already rejected it above
+
+COMMIT;
+```
+
+If either `UPDATE` fails(Alice has insufficient funds, the connection drops, the disk is full) the database rolls back automatically. Bob's account is untouched. Alice's balance is restored. The system is consistent.
+
+**Without a transaction:**
+```sql
+-- Statement 1 auto-commits
+UPDATE accounts SET balance = balance - 5000 WHERE name = 'Alice';
+
+-- Crash here → Alice's money is gone, Bob has nothing
+UPDATE accounts SET balance = balance + 5000 WHERE name = 'Bob';
+```
+
+No rollback. No recovery. The inconsistency is now permanent.
+
+**Application-level error handling (Python / psycopg2):**
+```python
+conn = psycopg2.connect(dsn)
+conn.autocommit = False  # explicit transaction control
+
+try:
+    cur = conn.cursor()
+    cur.execute("UPDATE accounts SET balance = balance - %s WHERE name = 'Alice'", (amount,))
+    cur.execute("UPDATE accounts SET balance = balance + %s WHERE name = 'Bob'",   (amount,))
+    conn.commit()
+except Exception as e:
+    conn.rollback()
+    raise
+finally:
+    cur.close()
+    conn.close()
+```
+
+---
+
+## The Latency Effect
+
+Transactions are not free. Every guarantee they provide has a cost and that cost is measured in **latency**.
+
+### Locking
+To enforce isolation, databases acquire **locks** on the rows (or pages, or tables) being read or modified. Other transactions that touch the same rows must wait until the lock is released.
+
+A long-running transaction holds its locks for the entire duration. If you open a transaction, make a few writes, then wait on external I/O: an HTTP call, a queue message, user input, locks are held the whole time. Every other transaction touching those rows is blocked.
+
+> **Rule of thumb:** Keep transactions as short as possible. Never do I/O inside a transaction.
+
+### Write-Ahead Logging (WAL)
+Before any change hits the actual data pages, it's written to the WAL which is a sequential, append-only log on disk. This is what makes durability possible after a crash. But every commit must wait for this log write to be flushed to disk before returning success.
+
+Databases batch and buffer WAL writes where possible, but on high-throughput systems, WAL contention is a real bottleneck.
+
+### Two-Phase Commit (2PC) in Distributed Systems
+When a transaction spans multiple databases say, a payment service and an inventory service, single-node transactions are not enough. Distributed transactions use **Two-Phase Commit**:
+
+1. **Prepare phase:** A coordinator asks all participants, "Can you commit?" Each participant locks its resources and responds with yes or no.
+2. **Commit phase:** If all say yes, the coordinator sends a commit. If any say no, it sends a rollback to everyone.
+
+2PC is correct but slow. Every participant adds a round trip. The coordinator becomes a single point of failure. Locks are held across network calls. This is why distributed systems often avoid 2PC and instead embrace **eventual consistency**, **sagas**, or **outbox patterns** to achieve correctness without the coordination overhead.
+
+---
+
+## Summary
+
+Transactions are the mechanism by which databases keep promises under adversity, failed writes, concurrent access, power cuts. The ACID properties define *what* those promises are. The operations (`BEGIN`, `COMMIT`, `ROLLBACK`, `SAVEPOINT`) define *how* you make them. And the latency effect is the honest cost of making them.
+
+The next time you write a multi-step database operation, ask yourself: if this crashes halfway through, is the resulting state one your business can live with? If the answer is no, wrap it in a transaction.
+
+That's the discipline the "all or nothing" rule demands and why it's worth paying for.
