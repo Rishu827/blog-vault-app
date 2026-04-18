@@ -89,6 +89,19 @@ function getBookColors(slug: string) {
       </p>
       <div class="hero-actions">
         <a href="/blog" class="hero-btn-primary">Enter the Library →</a>
+        <a
+          href="https://groups.google.com/g/rishabh-writes"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors hover:opacity-80 focus-visible:outline-none focus-visible:ring-2"
+          style="border-color: var(--color-border); color: var(--color-text); --tw-ring-color: var(--color-accent); text-decoration: none;"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--color-accent);">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+          Subscribe
+        </a>
         <RSSSubscribe feedUrl={feedUrl} client:load />
       </div>
       <div class="ornament mt-8" aria-hidden="true">✦ &nbsp; ✦ &nbsp; ✦</div>
