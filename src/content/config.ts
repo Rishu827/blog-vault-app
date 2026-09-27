@@ -10,6 +10,7 @@ const blog = defineCollection({
       publishDate: z.coerce.date(),
       updatedDate: z.coerce.date().optional().nullable().default(null),
       author: z.string().optional().default('Rishabh Singhal'),
+      library: z.enum(['wit', 'tomm']),
       tags: z
         .array(z.string().toLowerCase())
         .max(5)

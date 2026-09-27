@@ -11,6 +11,11 @@ const allPosts = await getCollection('blog', ({ data }) => {
   return !data.draft && data.publishDate <= new Date();
 });
 
+const libraries = [
+  { key: 'wit', label: 'WiT', fullName: "What's in Tech", description: "WiT — What's in Tech: posts on software engineering, architecture, and tooling." },
+  { key: 'tomm', label: 'TomM', fullName: 'Top of my Mind', description: "TomM — Top of my Mind: whatever's occupying my thoughts, tech or not." },
+] as const;
+
 const posts = allPosts.sort(
   (a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf()
 );
@@ -43,35 +48,122 @@ function getBookColors(slug: string) {
     <header class="library-header">
       <p class="library-eyebrow">The Archive</p>
       <h1 class="library-title">The Library</h1>
-      <p class="library-subtitle">
+      <p class="library-subtitle" id="library-count">
         {posts.length} {posts.length === 1 ? 'volume' : 'volumes'} in the collection
       </p>
+
+      <nav aria-label="Filter by library" class="library-filter">
+        <button type="button" class="library-filter-btn" data-lib="all" aria-current="true">
+          All
+        </button>
+        {libraries.map((lib) => (
+          <button
+            type="button"
+            class="library-filter-btn"
+            data-lib={lib.key}
+            aria-current="false"
+            title={lib.fullName}
+          >
+            {lib.label}
+          </button>
+        ))}
+      </nav>
+
+      <p class="library-desc" id="library-desc" hidden></p>
     </header>
 
     {posts.length === 0 ? (
       <p style="color: var(--color-text-muted);">No posts published yet.</p>
     ) : (
-      posts.map((post) => {
-        const slug = post.data.slug ?? post.slug;
-        const { cover, spine } = getBookColors(slug);
-        return (
-          <PostShelf
-            title={post.data.title}
-            slug={slug}
-            description={post.data.description}
-            publishDate={post.data.publishDate}
-            readingTime={calculateReadingTime(post.body)}
-            tags={post.data.tags}
-            coverColor={cover}
-            spineColor={spine}
-            draft={post.data.draft}
-          />
-        );
-      })
+      <>
+        <p class="library-empty" id="library-empty" hidden style="color: var(--color-text-muted);">
+          No posts in this section yet.
+        </p>
+        {posts.map((post) => {
+          const slug = post.data.slug ?? post.slug;
+          const { cover, spine } = getBookColors(slug);
+          return (
+            <PostShelf
+              title={post.data.title}
+              slug={slug}
+              description={post.data.description}
+              publishDate={post.data.publishDate}
+              readingTime={calculateReadingTime(post.body)}
+              tags={post.data.tags}
+              coverColor={cover}
+              spineColor={spine}
+              draft={post.data.draft}
+              library={post.data.library}
+            />
+          );
+        })}
+      </>
     )}
 
   </div>
 </BaseLayout>
+
+<script>
+  const LIBRARY_DESCRIPTIONS: Record<string, string> = {
+    wit: "WiT — What's in Tech: posts on software engineering, architecture, and tooling.",
+    tomm: "TomM — Top of my Mind: whatever's occupying my thoughts, tech or not.",
+  };
+
+  const buttons = document.querySelectorAll<HTMLButtonElement>('.library-filter-btn');
+  const shelves = document.querySelectorAll<HTMLElement>('.post-shelf');
+  const countEl = document.getElementById('library-count');
+  const descEl = document.getElementById('library-desc');
+  const emptyEl = document.getElementById('library-empty');
+
+  function applyFilter(lib: string | null, { push = false }: { push?: boolean } = {}) {
+    buttons.forEach((btn) => {
+      btn.setAttribute('aria-current', btn.dataset.lib === (lib ?? 'all') ? 'true' : 'false');
+    });
+
+    let visibleCount = 0;
+    shelves.forEach((shelf) => {
+      const isMatch = !lib || shelf.dataset.library === lib;
+      shelf.hidden = !isMatch;
+      if (isMatch) visibleCount++;
+    });
+
+    if (countEl) {
+      countEl.textContent = `${visibleCount} ${visibleCount === 1 ? 'volume' : 'volumes'} in the collection`;
+    }
+
+    if (descEl) {
+      if (lib && LIBRARY_DESCRIPTIONS[lib]) {
+        descEl.textContent = LIBRARY_DESCRIPTIONS[lib];
+        descEl.hidden = false;
+      } else {
+        descEl.hidden = true;
+      }
+    }
+
+    if (emptyEl) {
+      emptyEl.hidden = shelves.length === 0 || visibleCount !== 0;
+    }
+
+    if (push) {
+      const url = lib ? `/blog?lib=${lib}` : '/blog';
+      history.pushState({ lib }, '', url);
+    }
+  }
+
+  buttons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const lib = btn.dataset.lib === 'all' ? null : btn.dataset.lib ?? null;
+      applyFilter(lib, { push: true });
+    });
+  });
+
+  window.addEventListener('popstate', () => {
+    applyFilter(new URLSearchParams(location.search).get('lib'));
+  });
+
+  const initialLib = new URLSearchParams(location.search).get('lib');
+  applyFilter(initialLib && LIBRARY_DESCRIPTIONS[initialLib] ? initialLib : null);
+</script>
 
 <style>
   .library-header {
@@ -101,6 +193,42 @@ function getBookColors(slug: string) {
   .library-subtitle {
     font-size: 0.82rem;
     color: var(--color-text-muted);
-    margin: 0;
+    margin: 0 0 14px;
+  }
+
+  .library-filter {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .library-filter-btn {
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    font-family: inherit;
+    color: var(--color-text-muted);
+    background-color: transparent;
+    border: 1px solid var(--color-border);
+    cursor: pointer;
+    transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+  }
+
+  .library-filter-btn:hover {
+    color: var(--color-heading);
+  }
+
+  .library-filter-btn[aria-current='true'] {
+    color: var(--color-bg);
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+
+  .library-desc {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    font-style: italic;
+    margin: 4px 0 0;
   }
 </style>

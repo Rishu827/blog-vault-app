@@ -11,6 +11,7 @@ export interface Props {
   coverColor: string;
   spineColor: string;
   draft?: boolean;
+  library: string;
 }
 
 const {
@@ -23,6 +24,7 @@ const {
   coverColor,
   spineColor,
   draft = false,
+  library,
 } = Astro.props;
 
 const formattedDate = publishDate.toLocaleDateString('en-US', {
@@ -32,7 +34,7 @@ const formattedDate = publishDate.toLocaleDateString('en-US', {
 });
 ---
 
-<article class="post-shelf">
+<article class="post-shelf" data-library={library}>
 
   <!-- ── Tag labels row (shelf section label) ── -->
   <div class="shelf-tags-row">
