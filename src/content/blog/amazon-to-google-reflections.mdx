@@ -1,0 +1,101 @@
+---
+title: "Two Companies, One Engineer: The Muscles Amazon and Google Built in Me"
+description: "Three and a half years at Amazon, one year at Google - what actually changes when you switch, beyond the obvious."
+publishDate: 2026-09-27
+updatedDate: 2026-09-27
+author: "Rishabh Singhal"
+library: tomm
+tags: ["career", "amazon", "google", "engineering-culture"]
+draft: false
+---
+
+> A year ago I moved from Amazon to Google. In my first month, I sat in a design review where an eight-line change to a shared config took three weeks of consensus-building across four teams. At Amazon, I would have shipped it behind a feature flag by lunch and iterated from the metrics.
+
+> A few months later, I traced a subtle correctness edge case in a distributed system three layers deeper than anyone at my old company would have had the time, or the mandate, to go. I remember thinking that at Amazon, this same problem would have shipped with a monitoring alarm and a runbook instead of a proof. 
+
+Both moments taught me something real, and neither company comes out looking better for it. That's the gap this post is actually about: not "which company is better," but what each one optimizes for, and what that costs.
+
+For reasons unknown to me, I've been getting a lot of DMs lately asking about the differences I felt moving from Amazon to Google. So here's the long-form answer. A few things before we dive in:
+
+1. **Background:** I worked at Amazon for around 3.5 years (after a 6-month stint at a bootstrapped startup).
+2. **Current tenure:** I've been at Google for about a year now.
+3. **Disclaimer:** These opinions are strictly my own and do not represent the official views or positions of either company.
+4. **Context:** Most importantly, my perspective reflects the pre-LLM coding era.
+
+## 1. Origins: Optimizing Retail vs. Organizing the Web
+
+Every difference in this post: the tooling, the culture, the org charts, the vocabulary people reach for in a design review; traces back to one fact - **"these two companies were built to answer completely different questions"**.
+
+Amazon was [founded in 1994 by Jeff Bezos](https://en.wikipedia.org/wiki/History_of_Amazon), a Wall Street executive who looked at the exploding growth of the internet and saw an unprecedented opportunity to optimize an old, boring business: retail. The founding question was never "what's technically elegant". It was "how do we move goods and money faster, cheaper, and more reliably than anyone else." Technology at Amazon, even now, even at AWS's scale, is fundamentally in service of that operational question. It's why the language you hear in Amazon meetings leans so heavily on metrics, cost per unit, and customer defect rate. Those are retail words wearing engineering clothes (and that's not a criticism, it's the whole point).
+
+Google [began in 1996 as a Stanford research project by Larry Page and Sergey Brin](https://en.wikipedia.org/wiki/History_of_Google), built around a genuinely academic question: how do you rank the entire web by relevance, using nothing but the link structure between pages? It was incorporated in 1998, two years after the research itself started, and you can feel that two-year head start of "let's figure out the right algorithm first" everywhere in how the company still operates. Even now, you can gauge how deeply this technical-first identity runs by the fact that checking basic internet connectivity is practically synonymous with opening [google.com](http://google.com) or pinging Google's servers. **The company became infrastructure** precisely because it started as a research question about infrastructure, not a business plan that later needed infrastructure.
+
+### My Take
+
+Once you actually internalize the founding question behind each company, a lot of behavior that looks arbitrary from the outside stops being arbitrary. 
+* When an Amazon team spends forty-five minutes of a design review arguing about a single metric definition, they are not being petty, they are re-running the retail-optimization question at a smaller scale, because getting the metric wrong at scale is genuinely expensive.
+* When a Google team spends three weeks on a design doc for a change that looks trivial on paper, they are not being slow for its own sake, they are re-running the "is this actually the right way to compute this, for everyone who will ever depend on it" question, because getting it wrong at Google's scale is also genuinely expensive, just in a different currency.
+
+Neither instinct is wrong. They're both rational responses to the question their company was built to answer, and you can't understand either place if you evaluate it against the other's founding premise.
+
+## 2. Culture: Codified LPs vs. Decentralized "Googleyness"
+
+Amazon operates on a formal, dedicated set of [Leadership Principles (LPs)](https://www.amazon.jobs/content/en/our-workplace/leadership-principles) that deeply shape its engineering culture, working style, and day-to-day decision-making. From promotion packets and performance reviews to architecture reviews and everyday design conversations, everything is evaluated against these LPs. They are engineered with intention: to keep an immense operational machine aligned around extreme customer obsession, and to give a workforce that spans warehouses and satellite launches and cloud infrastructure a single, shared vocabulary for making decisions without needing a meeting every time.
+
+At Google, culture feels much more organic and decentralized. Rather than adhering to a strict, prescriptive rulebook, employees bring their own individual working styles and philosophies, loosely bound together by the idea of "[Googleyness](https://economictimes.indiatimes.com/news/international/global-trends/what-is-googleyness-google-ceo-sundar-pichai-explains-googleyness-in-six-phrases/articleshow/116594973.cms?from=mdr)", doing the right thing, collaborating across boundaries, and maintaining high intellectual rigor. Where Amazon enforces a unified operational code, Google acts more like an amalgam of distinct subcultures and academic-style freedom under a shared umbrella. You genuinely feel the difference in something as small as how a team decides its own working hours, review norms, or even internal jargon. There's no LP you can cite to settle the argument, because there isn't meant to be one.
+
+### My Take
+
+* I genuinely admire Amazon's Leadership Principles. They serve as a gold standard for decision-making that extends well beyond the workplace into personal life and everyday problem-solving. Concepts like *Ownership*, *Bias for Action*, and *Customer Obsession* offer a clear mental model for navigating complex life scenarios with accountability and speed. I still catch myself running personal decisions through an "Ownership" lens, months after leaving.
+
+* On the other hand, I am in awe of Google's culture because of how deeply it exposes you to the sheer breadth and diversity of the world. It operates as an environment where distinct perspectives, background philosophies, and working styles naturally collide, without a rulebook forcing them into the same shape first. Working at Google continually reminds me how vast the global tech landscape actually is, and it's taught me to appreciate cultural approaches to problem-solving that I would never have generated on my own.
+
+## 3. Organizational Mechanics: Federated Startups vs. Centralized Institution
+
+Setting the "why" aside for a moment, the "how work actually gets organized and paid for" is its own separate axis, and it's easy to conflate the two if you're not careful. A company can share your philosophy and still organize its teams completely differently, and that's exactly what happens here.
+
+Despite being a massive global enterprise, Amazon operates much like a collection of federated startups. Its famous "[2-pizza team](https://docs.aws.amazon.com/whitepapers/latest/public-sector-cloud-transformation/two-pizza-teams-from-ops-to-devops.html)" philosophy breaks large organizations into small, autonomous units that own their P&L, microservices, and operational metrics end-to-end. Costing and budgets are distributed down to the org and team level, driving a strong sense of ownership and resource-consciousness. A team that overspends on compute feels it directly, in their own numbers, not as an abstract company-wide line item. If a team needs to ship a feature, they move fast with minimal cross-org dependencies, because there's rarely a shared resource they need permission to touch.
+
+Google operates distinctly as a unified, large-scale institution. Investment and infrastructure costs are largely centralized, providing teams with access to [shared monorepos](https://research.google/pubs/why-google-stores-billions-of-lines-of-code-in-a-single-repository/), standardized developer tooling, and global computing resource pools that no individual team could ever justify building or maintaining on their own. This setup enables unmatched engineering depth and technical standardization across products, but it also means navigating broader organizational alignment, cross-team consensus, and centralized governance frameworks whenever you're launching anything that touches shared infrastructure, which, in a monorepo, is almost everything eventually.
+
+### My Take
+
+This is where I felt the sharpest whiplash moving between the two companies, and it taught me, more than anything else on this list, how to be ambitious and frugal at the exact same time.
+
+* From Amazon, I learned frugality: how to stretch every dollar of compute, operate under strict resource constraints, maintain extreme ownership, and treat every project like a lean startup where efficiency directly impacts survival and scale. There's a particular kind of discipline that only shows up when the cost of your service is a line item someone on your own team actually reads every week.
+
+* From Google, I learned healthy ambition: how to think at an immense global scale, design infrastructure meant to serve billions of users seamlessly, and pursue moonshot technical problems without letting immediate cost limits stifle long-term innovation. There's a different kind of freedom that only shows up when the infrastructure underneath you is simply assumed to exist, built and paid for by people whose entire job is making sure you never have to think about it.
+
+## 4. Engineering Velocity & Tooling Culture
+
+The developer experience at both companies reflects their underlying philosophies almost perfectly, once you know to look for it. Amazon focuses on isolated service deployment and operational speed. Teams rely on internal pipeline tooling to build, test, and release microservices independently, largely on their own schedule. Code review standards are left mostly to individual team discretion, favoring rapid iteration, fast deployments, and fast feedback loops in production environments. If something's wrong, you'll know from the dashboards within minutes, and you fix it forward rather than agonizing over it beforehand.
+
+Google operates on a massive monorepo with centralized, standardized developer infrastructure. Tools like [Critique](https://abseil.io/resources/swe-book/html/ch19.html), company-wide design doc reviews, and strict readability standards enforce exceptional engineering consistency across every team, whether they want it or not. Before code hits production, it undergoes rigorous architectural review to ensure long-term maintainability, shared library reuse, and system resilience. The tradeoff being that you'll know something's wrong before it ships, at the cost of it taking longer to ship at all.
+
+### My Take
+
+* Amazon taught me operational speed and agility: how to ship quickly, iterate safely using deployment metrics, and avoid getting bogged down by over-engineering when solving an immediate customer problem. There's a real skill in knowing when "good enough, measured carefully" beats "perfect, but late."
+
+* Google taught me software craftsmanship and maintainability: how to write code that scales across thousands of engineers, design systems built to last decades, and genuinely appreciate the value of strict technical rigor and shared architectural standards, instead of treating them as bureaucracy. I came in skeptical of [readability review](https://www.moderndescartes.com/essays/readability/) as a concept and left believing it's one of the more underrated ideas in software engineering at scale.
+
+## 5. The Friction: What Wasn't Fun
+
+None of the above was a clean upgrade in either direction, and it would be dishonest to write this whole piece as if both companies were just different flavors of great with no real downside. It's worth being specific about where each system actually hurt.
+
+At Amazon, the same metrics culture that makes teams fast also makes on-call genuinely brutal. You own a service end-to-end, including the 3am page, and a bad week of metrics can turn into an uncomfortable conversation regardless of whether the actual root cause was in your control. "Ownership" is an empowering idea right up until it becomes the framework used to explain why an upstream outage is somehow still your problem to answer for. The bias for speed also means some architectural debt gets deferred long past the point where fixing it early would have been cheaper. "We'll get to it after this launch" is a sentence I heard often, and not always followed through on.
+
+At Google, the flip side of decentralized culture and centralized infrastructure is decision latency, and it's not a minor inconvenience,it's structural. Getting agreement across teams that don't share your incentives, on a piece of shared infrastructure everyone has a stake in, is slow by design. It protects the monorepo from chaos, which is genuinely valuable, but it also means a good idea can quietly die of consensus before it ever gets the chance to ship, and there's rarely a single person you can point to who killed it. It just diffuses away across enough reviewers and enough quarters.
+
+Neither of these is a knock on either company specifically. They're the direct, unavoidable cost of the exact same structures that make each company good at what it does. You don't get Amazon's speed without its blame-shaped ownership, and you don't get Google's consistency without its consensus tax.
+
+## 6. Career Growth & Personal Evolution
+
+Ultimately, both companies shape your growth as an engineer in drastically different, complementary ways.
+
+**Amazon is a trial-by-fire masterclass in end-to-end ownership.** Early in your tenure, you are given full accountability for building, deploying, operating, and supporting your services on-call. You quickly develop operational grit, high accountability, and the confidence to drive projects from zero to launch, often faster than you thought you were capable of.
+
+**Google is a masterclass in deep technical domain expertise and collaborative scale.** You are surrounded by industry-leading domain experts, world-class computer science research, and systems built to handle global scale. You learn how to navigate complex organizational consensus, write clear design proposals, and solve foundational engineering problems that don't have a known answer sitting in a runbook somewhere.
+
+## Final Thoughts
+
+Looking back, I don't view one company as inherently better than the other. They simply train different muscles. Amazon built my execution muscle: how to take raw ownership, move fast, and operate frugally, even when it occasionally meant carrying more risk than was comfortable. Google built my architectural muscle: how to think deeply, design for massive scale, and appreciate the diversity of engineering approaches, even when it occasionally meant watching a good idea take three months longer than it should have. Carrying both perspectives forward gives you a rare balance: the speed and discipline to build efficiently, paired with the vision and rigor to build for the long haul.
