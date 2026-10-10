@@ -1,0 +1,179 @@
+---
+title: "Caching 101: The 100x Trick Behind Every Fast System"
+description: "What a cache actually is, why it works, and the one formula that tells you if yours is helping. Part 1 of an 8-part series on caching."
+publishDate: 2026-10-13
+updatedDate: 2026-10-13
+author: "Rishabh Singhal"
+library: wit
+tags: ["caching", "backend-development", "system-design", "performance"]
+draft: true
+---
+
+A **cache** is a small, fast store that keeps copies of data that is expensive to get, so the next request doesn't have to pay for it again.
+
+> **Pay once. Reuse many times.**
+
+That's the whole idea. You'll find it inside your CPU, your browser, your database, the CDN in front of your website, and almost every large system you've ever used.
+
+Simple in principle. It is also behind some of the most painful outages in this industry, which is why I'm penning next few articles on it.
+
+---
+
+## About this series
+
+I'm writing the series for a mixed audience: if you're new to backend work, the early parts should be enough to start using caches without hurting yourself. If you've been burned by one in production, the later parts (stampedes, invalidation races, hot keys) are for you.
+
+Every post follows the same shape: a real situation, the concept, how it breaks, and a challenge. I'm also building an open-source playground called **Cache Lab**, where these scenarios can also be visualized and run along with reading the article.
+
+| Part | Topic |
+|---|---|
+| 1 | Why caching works (this post) |
+| 2 | Read and write strategies |
+| 3 | Eviction: who gets thrown out |
+| 4 | Invalidation and consistency |
+| 5 | Caching layers, browser to database |
+| 6 | Failure modes: stampedes, avalanches, penetration |
+| 7 | Caching at scale: distributed caches and hot keys |
+| 8 | Designing caching for a real system, and when not to |
+
+> **In one minute:** A cache trades a little memory and some correctness for a lot of speed. It works because real traffic repeats itself. Your job is to keep the hit ratio high and to know what happens when the cache is wrong, or gone.
+
+---
+
+## The Problem: Distance Is Expensive
+
+Not all data is equally far away from your code. Here are rough numbers, the kind that float around in every "latency numbers every programmer should know" list. Exact values vary by hardware and year, so treat them as orders of magnitude:
+
+| Where the data lives | Rough time |
+|---|---|
+| CPU L1 cache | ~1 ns |
+| Main memory (RAM) | ~100 ns |
+| SSD random read | ~100 µs |
+| Round trip inside a data centre | ~0.5 ms |
+| Spinning disk seek | ~10 ms |
+| Round trip across continents | ~150 ms |
+
+These numbers aren't the holy grail for designing hardware but looking at their ratios express a lot. Reading from RAM is thousands of times faster than a network hop plus a disk read. Every layer in that table exists because the layer below it is too slow to talk to on every request.
+
+A cache is the same trick applied on purpose: keep a copy of the expensive thing somewhere cheap.
+
+### A scenario
+
+Say you run an online store. A product page needs product details, price, stock, seller info, a review summary, and a few recommendations. Call it 12 database queries, around 8 ms each. That's roughly 100 ms of database time before your application code even starts.
+
+Now imagine 2,000 people hitting product pages every second. That's 24,000 queries per second on your database. And here's the thing: most of those requests are for the same few thousand popular products. The database is doing the same work, over and over, to produce the same answer.
+
+Put the assembled page data in a cache keyed by product ID. The first request for a product pays the 100 ms. The next thousand pay about a millisecond.
+
+That's the 100x trick. It's real, and it's why this post is not the whole series.
+
+---
+
+## Hit, Miss, and the Only Formula You Need
+
+Two words to learn first:
+
+- **Cache hit:** the data was in the cache. Fast.
+- **Cache miss:** it wasn't. You go to the slow source, and usually store the result for next time.
+
+The **hit ratio** is hits divided by total requests. It's the single most important number for any cache.
+
+Here's how it turns into latency. Suppose the cache answers in 1 ms and the origin (your database) in 100 ms. On a miss you pay both, the failed cache check and the origin trip:
+
+```
+average latency = hit_ratio * cache_time + (1 - hit_ratio) * (cache_time + origin_time)
+```
+
+Plugging in our numbers:
+
+| Hit ratio | Average latency | Load reaching the database |
+|---|---|---|
+| 50% | 51 ms | 50% of traffic |
+| 80% | 21 ms | 20% |
+| 90% | 11 ms | 10% |
+| 95% | 6 ms | 5% |
+| 99% | 2 ms | 1% |
+
+Stare at the last two rows for a second. Going from 90% to 99% sounds like a 9-point improvement. In practice it's more than 5x faster, and your database sees one-tenth of the traffic it saw before.
+
+This is why people obsess over hit ratio, and why a cache with a "decent" 90% can still be the thing that's holding your system back.
+
+---
+
+## Why Caches Work At All
+
+A cache is tiny compared to the data it fronts. It shouldn't work. It does, because access patterns are not random. Two ideas explain most of it:
+
+**Temporal locality.** Something used recently is likely to be used again soon. The product that was just viewed will be viewed again in the next few seconds. [Ref.](https://en.algorithmica.org/hpc/external-memory/locality/)
+
+**Skew.** A small fraction of keys gets a huge share of the traffic. A few products, a few celebrity profiles, a few hot search terms. Mathematicians model this with a [Zipf distribution](https://en.wikipedia.org/wiki/Zipf%27s_law) ([mathematical definition](https://mathworld.wolfram.com/ZipfDistribution.html)), and I'll use that word in Cache Lab, so remember it: *a few things are very popular, and most things are rarely touched.*
+
+If every key were equally likely, a cache that holds 1% of your data would get about a 1% hit ratio. Because of skew, the same 1% can catch a surprisingly large chunk of traffic.
+
+> **Where this comes from:** In 2020, researchers analysed production cache traces from 153 in-memory cache clusters at Twitter, more than 80 TB of data. They reported that many workloads were more skewed, and more write-heavy, than earlier research had assumed ([OSDI '20 paper - "A large scale analysis of hundreds of in-memory cache clusters at Twitter"](https://www.usenix.org/conference/osdi20/presentation/yang)). The best part for learners: [they released the anonymized traces](https://github.com/twitter/cache-trace), so you can test ideas on real traffic.
+
+---
+
+## What It Costs You
+
+Nothing in engineering is free, and caches are sold harder than most. Here's the bill.
+
+### 1. Staleness
+A cache holds a *copy*. The moment the original changes, your copy can be wrong. Maybe for a second, maybe for hours. (*Part 4 is entirely about this.*)
+
+### 2. More moving parts
+Now there are two places data can live, and your code has to keep them in agreement. More infrastructure to run, monitor, secure, and pay for.
+
+### 3. Memory costs money
+RAM is the expensive end of the storage hierarchy. You can't cache everything, so something has to decide what stays and what goes (*Part 3*).
+
+### 4. Your system now behaves in two modes
+This one gets underestimated. Once your service depends on a cache for its speed, it behaves differently when data is cached and when it isn't. Amazon's Builders' Library calls this *modal behavior*, and warns that services can end up depending on the cache to survive ([Caching challenges and strategies](https://aws.amazon.com/builders-library/caching-challenges-and-strategies/)).
+
+Here's the example I like. Say your database can handle 300 requests per second. You add a cache with a 90% hit ratio, and your system happily serves 3,000 requests per second. Great. But you're now running at ten times what your database can survive on its own. If the cache goes down, or restarts empty, all 3,000 requests land on a database built for 300. The paper that uses this example, [Metastable Failures in Distributed Systems](https://sigops.org/s/conferences/hotos/2021/papers/hotos21-s11-bronson.pdf), points out that the cache made you faster *and* more fragile at the same time.
+
+We'll get to that in *Part 6*. For now, just remember it: **a cache that raises your capacity also raises the damage when it disappears.**
+
+---
+
+## Where Caches Live
+
+You've already used all of these without calling them caches:
+
+- **In your browser:** saved copies of images, scripts, and pages
+- **At the CDN:** copies near the user, so requests don't cross an ocean
+- **In your application:** an in-process map or a library like Caffeine
+- **In a shared cache:** Redis or Memcached, shared by all your servers
+- **In your database:** the buffer pool keeps hot pages in memory
+- **In your CPU:** L1, L2, L3, quietly doing the same job
+
+Same idea at every layer. Different failure modes at each. We'll walk through the whole stack in *Part 5*.
+
+---
+
+## Try It Yourself
+
+In **Cache Lab**, the first scenario is "Latency ladder and hit-ratio explorer." You get a workload, a cache, and a slow origin.
+
+**Challenge:** get the p95 latency under 50 ms using the *smallest* cache you can. Then change the workload from skewed to uniform and watch your hit ratio collapse. That's skew doing the work.
+
+Explore [CacheLab Exercise for Article1](https://rishu827.github.io/cache-lab-playground/#v1.eyJzIjoibGF0ZW5jeS1sYWRkZXIiLCJjIjp7InNlZWQiOjEsImR1cmF0aW9uTXMiOjYwMDAwLCJ3aW5kb3dNcyI6MTAwMCwid29ya2xvYWQiOnsia2V5c3BhY2UiOjMwMCwicmF0ZVBlclNlYyI6MjAwLCJyZWFkUmF0aW8iOjEsInNlZ21lbnRzIjpbeyJmcm9tTXMiOjAsInBhdHRlcm4iOnsia2luZCI6InppcGYiLCJza2V3IjoxLjJ9fV19LCJjYWNoZSI6eyJjYXBhY2l0eSI6MTAsInBvbGljeSI6ImxydSIsInR0bE1zIjowLCJsYXRlbmN5TXMiOjF9LCJzdHJhdGVneSI6ImNhY2hlLWFzaWRlIiwid3JpdGVCZWhpbmRGbHVzaE1zIjoyMDAwLCJvcmlnaW4iOnsibGF0ZW5jeU1zIjoxMDAsImppdHRlciI6MC4zLCJjb25jdXJyZW5jeSI6MjAsImZhaWx1cmVSYXRlIjowfSwicHJvdGVjdGlvbnMiOnsiY29hbGVzY2luZyI6ZmFsc2UsInR0bEppdHRlciI6MCwic3RhbGVXaGlsZVJldmFsaWRhdGVNcyI6MCwibmVnYXRpdmVDYWNoZVR0bE1zIjowLCJibG9vbUJpdHNQZXJLZXkiOjAsImxlYXNlIjpmYWxzZSwibGVhc2VSZXRyeU1zIjoyNX0sImludmFsaWRhdGlvbiI6eyJ0YWdHcm91cHMiOjAsIm9uV3JpdGUiOiJrZXkiLCJ2ZXJzaW9uZWRLZXlzIjpmYWxzZX0sImxheWVycyI6W10sImNsdXN0ZXIiOnsibm9kZXMiOjEsInJvdXRlciI6ImNvbnNpc3RlbnQiLCJ2bm9kZXMiOjEwMH0sImV2ZW50cyI6W119fQ)
+
+---
+
+## Summary
+
+A cache keeps a nearby copy of something expensive. It works because real traffic is repetitive and skewed. The number to watch is the hit ratio, and small changes at the high end matter far more than they look: 90% to 99% is a 5x latency win and 10x less load on your database.
+
+The price is staleness, extra complexity, memory cost, and a system that behaves differently when the cache is cold or gone. The rest of this series is about getting the benefit while managing that price.
+
+**Next up:** [Cache-Aside, Write-Through, Write-Behind: How Your Cache Talks to Your Database](/blog/02_cache-cache-aside-write-through-write-behind), the strategies for getting data in and out of a cache, and how each one breaks.
+
+---
+
+## References
+
+- Yang, Yue, Rashmi. [A Large Scale Analysis of Hundreds of In-Memory Cache Clusters at Twitter](https://www.usenix.org/conference/osdi20/presentation/yang), OSDI 2020
+- Twitter. [Anonymized production cache traces](https://github.com/twitter/cache-trace)
+- Brinkley, Chhabra. [Caching challenges and strategies](https://aws.amazon.com/builders-library/caching-challenges-and-strategies/), Amazon Builders' Library
+- Bronson et al. [Metastable Failures in Distributed Systems](https://sigops.org/s/conferences/hotos/2021/papers/hotos21-s11-bronson.pdf), HotOS 2021
