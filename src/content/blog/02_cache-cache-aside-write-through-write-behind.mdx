@@ -1,0 +1,220 @@
+---
+title: "Cache-Aside, Write-Through, Write-Behind: How Your Cache Talks to Your Database"
+description: "Five ways to wire a cache to a database, what each one costs you, and how to pick. Part 2 of the 8-part caching series."
+publishDate: 2026-10-14
+updatedDate: 2026-10-14
+author: "Rishabh Singhal"
+library: wit
+tags: ["caching", "backend-development", "system-design", "databases"]
+draft: false
+---
+
+import CacheFlow from '../../components/blog/02_cache-cache-aside-write-through-write-behind/visuals/CacheFlow.tsx';
+
+A cache has no opinion about your data. It stores what it's given and returns what it has.
+
+Somebody has to decide who puts data in, who updates it when the database changes, and what happens when the two disagree. That decision is the **caching strategy**, and it matters more than which cache product you pick.
+
+*This is Part 2 of the caching series. [Part 1](https://rishabh-writes.vercel.app/blog/01_cache-caching-101-the-100x-trick) covered why caches work and the hit-ratio math.*
+
+> **In one minute:** Start with cache-aside. It's the simplest, it survives cache failures, and it covers most needs. Reach for write-through when readers must see fresh data right after a write. Use write-behind only when you can afford to lose writes.
+
+---
+
+## Two Questions Decide Everything
+
+Every strategy answers two questions:
+
+1. **On a read miss, who fetches the data?** Your application, or the cache itself?
+2. **On a write, where does it go first?** The database, the cache, or both?
+
+Five combinations come out of that, and each has a name.
+
+| Strategy | Reads | Writes |
+|---|---|---|
+| Cache-aside | App checks cache, falls back to DB, fills cache | App writes DB, then invalidates cache |
+| Read-through | Cache fetches from DB on a miss | (pairs with any write strategy) |
+| Write-through | | Write goes to cache and DB, in the same operation |
+| Write-behind | | Write goes to cache; DB is updated later |
+| Write-around | | Write goes straight to DB, skipping the cache |
+
+---
+
+## 1. Cache-Aside (Lazy Loading)
+
+This is the one you'll use most. The application owns the logic. Here's a read that misses, step by step:
+
+<CacheFlow strategy="cache-aside" />
+
+And in code:
+
+```ts
+async function getProduct(id: string): Promise<Product> {
+  const cached = await cache.get(`product:${id}`);
+  if (cached) return cached;                       // hit
+
+  const product = await db.products.findById(id);  // miss: go to the source
+  await cache.set(`product:${id}`, product, { ttl: 300 });
+  return product;
+}
+
+async function updateProduct(id: string, changes: Partial<Product>) {
+  await db.products.update(id, changes);
+  await cache.delete(`product:${id}`);             // next read refills it
+}
+```
+
+**Why people like it**
+- Only data that's actually requested gets cached. No wasted memory.
+- If the cache dies, your app still works. It just gets slower, because every request becomes a miss.
+
+**Where it hurts**
+- The first request for anything is slow (a cold miss).
+- There's a window between a database change and the cache catching up where readers see old data.
+- Every code path that touches the data has to remember the cache logic. Forget one, and you get bugs that only show up in production.
+
+Notice that on update we **delete** the cache entry instead of overwriting it. That feels odd the first time you see it, and the reason is a nasty race condition that gets its own post: Part 4.
+
+Uber's integrated cache, CacheFront, follows exactly this read path. Check Redis, fetch the missing rows from storage, and populate Redis on the way back ([Uber engineering](https://www.uber.com/us/en/blog/how-uber-serves-over-40-million-reads-per-second-using-an-integrated-cache)).
+
+---
+
+## 2. Read-Through
+
+Same idea as cache-aside, except the *cache* is responsible for loading data. Your code just asks the cache. If the cache doesn't have it, the cache goes and gets it. Compare the arrows with the diagram above: the app no longer has a line to the database.
+
+<CacheFlow strategy="read-through" />
+
+```ts
+const product = await cache.get(`product:${id}`);   // cache loads from DB on a miss
+```
+
+**The upside** is a cleaner application: one API, no cache logic scattered around.
+
+**The downside** is subtler. When the cache sits *in front of* the database, it becomes part of your availability story. Amazon's Builders' Library makes this point: inline caches give clients a uniform API, but they make the cache part of the availability equation, whereas side caches (cache-aside) let you degrade gracefully when the cache is unhealthy ([source](https://aws.amazon.com/builders-library/caching-challenges-and-strategies/)).
+
+Neither is wrong. Just know which one you chose.
+
+---
+
+## 3. Write-Through
+
+Every write goes to the cache *and* the database, and the write isn't done until both succeed.
+
+<CacheFlow strategy="write-through" />
+
+**Why people like it**
+- The cache is always fresh. A read right after a write sees the new value.
+- Simple mental model: the cache can't be older than the database (barring failures).
+
+**Where it hurts**
+- Writes are slower, since they pay for two stores.
+- You cache data that may never be read. If most of what you write is never requested again, you're filling memory with junk.
+
+A real example: Amazon DynamoDB Accelerator (DAX) is documented as a write-through cache. It passes your writes through to DynamoDB synchronously and updates its own item cache after ([AWS docs](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DAX.consistency.html)).
+
+---
+
+## 4. Write-Behind (Write-Back)
+
+The write goes to the cache and returns *immediately*. The database gets updated later, in the background, often in batches.
+
+<CacheFlow strategy="write-behind" />
+
+CPUs do this. A write-back CPU cache marks a line "dirty" and writes it to memory only when it's evicted. If you remember that from a computer architecture class, it's the same concept.
+
+**Why people like it**
+- Writes are very fast.
+- Many updates to the same key can collapse into one database write. Great for counters.
+
+**Where it hurts**
+- **If the cache dies before it flushes, those writes are gone.** The user got a success response for data that never reached the database.
+- Ordering and retry logic get tricky.
+- The database is behind. Anything reading the database directly (reports, other services) sees old data.
+
+Think of a shopping cart. Write-behind makes adding items feel instant, and losing the last few clicks in a crash is annoying but survivable. Now think of a payment ledger. Same strategy, completely different answer: never.
+
+---
+
+## 5. Write-Around
+
+Writes go straight to the database. The cache is skipped, and gets filled later only if someone reads the data.
+
+<CacheFlow strategy="write-around" />
+
+**When it fits:** data that is written once and read rarely or never. Think uploaded files, log entries, audit records. Writing them into the cache would push out data that people actually read.
+
+**The catch:** the first read after a write is always a miss. And if you're updating existing data rather than creating new data, you still need to invalidate the old cached copy.
+
+---
+
+## Play With It
+
+Reading about arrows only goes so far. Below, pick a strategy and step through it. Watch the **cache** and **database** boxes as you go: the interesting moments are when they disagree.
+
+Two things worth trying: on cache-aside, step through *Write* and notice the moment the cache holds a stale price. On write-behind, pick *cache crashes first* and see what the user was told versus what the database actually has.
+
+<CacheFlow mode="interactive" client:visible />
+
+---
+
+## Choosing: A Practical Table
+
+| What you're storing | Pick | Why |
+|---|---|---|
+| User profile, product details | Cache-aside | Read-heavy, a few seconds of staleness is fine |
+| Data other services rely on being fresh right after a write | Write-through | The cache can't lag |
+| Shopping cart, session state | Write-through, or write-behind if you accept some loss | Speed vs durability |
+| View counters, "likes", analytics | Write-behind | Many small writes, tiny losses acceptable |
+| Payments, balances, anything transactional | Don't use write-behind. Probably don't cache the source of truth at all | See my post on [Transactions](/blog/transactions) |
+| Audit logs, uploads | Write-around | Written once, rarely read |
+
+---
+
+## In the Wild: When Cache-Aside Wasn't Enough
+
+For years Facebook used memcache as a **lookaside** cache in front of MySQL for its social graph, which is cache-aside at massive scale. Every client had to implement the cache logic correctly.
+
+Then they built TAO, a data store that sits between web servers and MySQL, understands the graph (objects and associations), and manages its own cache. In the TAO paper they describe this as avoiding some fundamental shortcomings of a lookaside cache architecture. In their sampled workload, reads were 99.8% of API requests with an overall read hit rate of 96.4% ([TAO, USENIX ATC 2013](https://www.usenix.org/conference/atc13/technical-sessions/presentation/bronson)).
+
+My read on it: cache-aside is a perfectly good start, and at a big enough scale, with enough teams touching the same data, you may want to push the cache logic *out* of every client and into a shared layer. That's a scale problem, not a day-one problem.
+
+---
+
+## My Take
+
+If you're picking a strategy and feeling unsure, the order I'd go in:
+
+1. **Cache-aside with a TTL.** It works, it fails safe, and everyone on your team will understand it.
+2. Add **explicit invalidation** on writes so you're not waiting for TTLs.
+3. Only then ask whether any specific path needs write-through or write-behind.
+
+The strategies that make writes faster are the ones that make failure harder to reason about. Don't pay that price until you've measured a reason to.
+
+---
+
+## Try It Yourself
+
+In [Cache Lab](https://rishu827.github.io/cache-lab-playground/#v1.eyJzIjoic3RyYXRlZ2llcyIsImMiOnsic2VlZCI6MSwiZHVyYXRpb25NcyI6NjAwMDAsIndpbmRvd01zIjoxMDAwLCJ3b3JrbG9hZCI6eyJrZXlzcGFjZSI6MjAwLCJyYXRlUGVyU2VjIjoyMDAsInJlYWRSYXRpbyI6MC42LCJzZWdtZW50cyI6W3siZnJvbU1zIjowLCJwYXR0ZXJuIjp7ImtpbmQiOiJ6aXBmIiwic2tldyI6MX19XX0sImNhY2hlIjp7ImNhcGFjaXR5IjoxMDAsInBvbGljeSI6ImxydSIsInR0bE1zIjowLCJsYXRlbmN5TXMiOjF9LCJzdHJhdGVneSI6IndyaXRlLWJlaGluZCIsIndyaXRlQmVoaW5kRmx1c2hNcyI6MjAwMCwib3JpZ2luIjp7ImxhdGVuY3lNcyI6ODAsImppdHRlciI6MC4zLCJjb25jdXJyZW5jeSI6MTAsImZhaWx1cmVSYXRlIjowfSwicHJvdGVjdGlvbnMiOnsiY29hbGVzY2luZyI6ZmFsc2UsInR0bEppdHRlciI6MCwic3RhbGVXaGlsZVJldmFsaWRhdGVNcyI6MCwibmVnYXRpdmVDYWNoZVR0bE1zIjowLCJibG9vbUJpdHNQZXJLZXkiOjAsImxlYXNlIjpmYWxzZSwibGVhc2VSZXRyeU1zIjoyNX0sImludmFsaWRhdGlvbiI6eyJ0YWdHcm91cHMiOjAsIm9uV3JpdGUiOiJrZXkiLCJ2ZXJzaW9uZWRLZXlzIjpmYWxzZX0sImxheWVycyI6W10sImNsdXN0ZXIiOnsibm9kZXMiOjEsInJvdXRlciI6ImNvbnNpc3RlbnQiLCJ2bm9kZXMiOjEwMH0sImV2ZW50cyI6W3siYXRNcyI6MzAwMDAsImFjdGlvbiI6eyJraW5kIjoiY3Jhc2hXcml0ZUJlaGluZCJ9fV19fQ), scenario 2 runs the *same* workload under all five strategies, side by side.
+
+**Challenge:** find the strategy that survives a cache crash with **zero lost writes**, then find the one that gives the lowest write latency. They won't be the same one.
+
+---
+
+## Summary
+
+How a cache connects to its database comes down to two questions: who loads on a miss, and where do writes go. Cache-aside is the sensible default. Read-through hides the logic but ties the cache into your availability. Write-through keeps things fresh at the cost of write speed. Write-behind is fast and risky. Write-around protects the cache from data nobody reads.
+
+None of them solves staleness completely, which is where this series is headed.
+
+**Next up:** [Who Gets Evicted? LRU, LFU, and the Algorithms Inside Real Caches](/blog/who-gets-evicted-lru-lfu). The cache is full. What gets thrown out?
+
+---
+
+## References
+
+- Nishtala et al. [Scaling Memcache at Facebook](https://www.usenix.org/conference/nsdi13/technical-sessions/presentation/nishtala), NSDI 2013
+- Bronson et al. [TAO: Facebook's Distributed Data Store for the Social Graph](https://www.usenix.org/conference/atc13/technical-sessions/presentation/bronson), USENIX ATC 2013
+- [DAX and DynamoDB consistency models](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DAX.consistency.html), AWS documentation
+- Brinkley, Chhabra. [Caching challenges and strategies](https://aws.amazon.com/builders-library/caching-challenges-and-strategies/), Amazon Builders' Library
+- Uber. [How Uber Serves Over 40 Million Reads Per Second Using an Integrated Cache](https://www.uber.com/us/en/blog/how-uber-serves-over-40-million-reads-per-second-using-an-integrated-cache)
