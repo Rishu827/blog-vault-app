@@ -1,0 +1,278 @@
+---
+title: "Who Gets Evicted? LRU, LFU, and the Algorithms Inside Real Caches"
+description: "Caches are always full. How eviction policies decide what to throw out, why LRU gets fooled by scans, and how to build an LRU yourself. Part 3 of 8."
+publishDate: 2026-10-20
+updatedDate: 2026-10-20
+author: "Rishabh Singhal"
+library: wit
+tags: ["caching", "algorithms", "system-design", "performance"]
+draft: false
+---
+
+import EvictionStepper from '../../components/blog/03_cache-who-gets-evicted-lru-lfu/visuals/EvictionStepper.tsx';
+import InnoDbMidpoint from '../../components/blog/03_cache-who-gets-evicted-lru-lfu/visuals/InnoDbMidpoint.tsx';
+import S3FifoQueues from '../../components/blog/03_cache-who-gets-evicted-lru-lfu/visuals/S3FifoQueues.tsx';
+import HitRatioCurve from '../../components/blog/03_cache-who-gets-evicted-lru-lfu/visuals/HitRatioCurve.tsx';
+
+A cache that never fills up isn't a cache. It's a second database.
+
+The whole point is that it's smaller than the data behind it, which means that sooner or later it's full, a new item shows up, and something has to leave. Deciding *what* leaves is called the **eviction policy**, and it decides your hit ratio more than most people realize.
+
+*This is Part 3 of the caching series. [Part 2](/blog/02_cache-cache-aside-write-through-write-behind) covered how data gets into a cache. Here we cover how it gets out.*
+
+> **In one minute:** LRU evicts what hasn't been used for the longest time. LFU evicts what's used least often. Both can be fooled: LRU by one-time scans, LFU by data that was popular once and never left. Modern caches combine ideas to dodge both traps.
+
+---
+
+## What Makes a Good Eviction Policy
+
+The perfect policy is easy to describe and impossible to build: evict the item that will be needed furthest in the future. That's called [Belady's optimal algorithm](https://en.wikipedia.org/wiki/Cache_replacement_policies#:~:text=edit-,B%C3%A9l%C3%A1dy%27s%20algorithm,-edit). It needs a crystal ball, so nobody uses it in production, but it's the yardstick other policies get measured against.
+
+Real policies guess the future from the past. The question is which part of the past to trust.
+
+---
+
+## The Main Policies
+
+### FIFO: First In, First Out
+Evict whatever has been in the cache the longest, regardless of how often it's used. It's cheap and dumb: just a queue.
+
+The surprise is that it's not as bad as it sounds. More on that below.
+
+### LRU: Least Recently Used
+Evict the item that hasn't been touched for the longest time. The bet is *temporal locality*: if you used something recently, you'll probably use it again soon.
+
+Let's trace it. Capacity is 3, and requests arrive as `A B C A D`. By the time D shows up the cache holds A, B and C, and A was used more recently than B. So when D needs room, B gets evicted, not A. That's LRU.
+
+### LFU: Least Frequently Used
+Evict the item with the fewest accesses. The bet is that popularity is stable: something requested 1,000 times is more valuable than something requested twice.
+
+Same trace: A has 2 hits, B has 1, C has 1. When D arrives, B and C tie at one hit. Ties are usually broken by recency, so B goes.
+
+### Random
+Pick a victim at random. Sounds silly, but it's cheap, has no bookkeeping, and holds up better than you'd expect.
+
+### See them side by side
+
+Reading about victims only goes so far. Below, the same requests go to FIFO, LRU, LFU and a fourth policy I'll explain in a moment (LRU with a *midpoint*). Step through the **Basic trace** first and watch what happens when D arrives: FIFO throws out A, even though A was just used, because FIFO only cares about arrival order. The other three throw out B.
+
+Then try the other two scenarios. We'll come back to them in the next section.
+
+<EvictionStepper client:visible />
+
+---
+
+## Build an LRU Yourself
+
+This is the question that shows up in every interview, and it's worth doing once. The classic answer: a **hash map** for O(1) lookup plus a **doubly linked list** to track order. On access, move the node to the front. On eviction, remove from the back.
+
+In JavaScript or TypeScript you can cheat, because `Map` remembers insertion order:
+
+```ts
+class LRUCache<K, V> {
+  private map = new Map<K, V>();
+
+  constructor(private capacity: number) {}
+
+  get(key: K): V | undefined {
+    if (!this.map.has(key)) return undefined;
+    const value = this.map.get(key)!;
+    this.map.delete(key);       // remove and re-insert,
+    this.map.set(key, value);   // so it becomes the newest entry
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.map.has(key)) {
+      this.map.delete(key);
+    } else if (this.map.size >= this.capacity) {
+      const oldest = this.map.keys().next().value as K;  // first = oldest
+      this.map.delete(oldest);
+    }
+    this.map.set(key, value);
+  }
+}
+```
+
+About 20 lines, and it's a real LRU. Production caches add things this one lacks: thread safety, TTLs, size limits in bytes instead of item counts, and metrics. But the heart is the same. The Cache Lab simulator uses an LRU that works this way.
+
+---
+
+## How Each One Gets Fooled
+
+This is where it gets interesting. Every policy has a workload that breaks it.
+
+### LRU vs. the scan
+Imagine your cache holds 100 hot product pages, and everything's humming at a 95% hit ratio. Then a nightly job walks through 10,000 products once each, to build a report.
+
+Each of those products is requested exactly once. Under LRU, each one is "the most recently used" the moment it arrives, so it pushes something out. After the scan, all 100 hot pages are gone, replaced by 100 products nobody will ask for again. The next morning, your hit ratio is close to zero until the cache refills.
+
+This is called **cache pollution**, and a one-time sequential scan is the classic trigger. You can watch it happen in the **Nightly scan** scenario above: after the six one-off pages, FIFO and LRU have lost all three hot pages, while LFU and the midpoint list kept them.
+
+### LFU vs. the has-been
+LFU's weakness is the opposite. Something that was extremely popular last week built up a huge count. This week it's dead, but its count keeps it safe from eviction. Meanwhile newer items, with low counts, keep getting evicted before they get a chance to prove themselves.
+
+The fix is **aging**: periodically decay the counts so old popularity fades. The **Yesterday's star** scenario shows the problem: LFU keeps A, which is never requested again, so B, C and D fight over the two slots that are left.
+
+---
+
+## What Real Systems Do
+
+### Databases protect against scans
+MySQL's InnoDB buffer pool uses a modified LRU with *midpoint insertion*. New pages are inserted at the middle of the list, in an "old" sublist, rather than at the front. A page only gets promoted to the "young" section if it's accessed again, and a setting called `innodb_old_blocks_time` (1000 ms by default) delays that promotion. So a table scan flows through the old sublist without disturbing the hot pages ([MySQL docs](https://dev.mysql.com/doc/refman/5.7/en/innodb-buffer-pool.html)).
+
+<InnoDbMidpoint />
+
+That's exactly the nightly-report problem, solved inside the database. It's also the fourth row in the stepper above: a simplified version of this list, so you can see it survive the scan.
+
+### Smarter policies from research
+- **ARC** (IBM, 2003) keeps two lists, one for recency and one for frequency, and adapts the balance between them on the fly. It's described as scan-resistant: one-time requests pass through without polluting the cache ([FAST '03](https://www.usenix.org/conference/fast-03/arc-self-tuning-low-overhead-replacement-cache)).
+- **TinyLFU** (2017) adds an *admission* step. A new item doesn't get in just because there's space. It has to look more valuable than the item it would replace. It does this using a compact frequency sketch instead of per-item counters ([ACM ToS](https://dl.acm.org/doi/10.1145/3149371)). The Caffeine library for Java uses a windowed variant of this idea.
+- **S3-FIFO** (SOSP 2023) goes the other way: use three simple FIFO queues, a small one that filters out items seen only once, a main one for items that proved reuse, and a "ghost" queue that remembers only the keys of recently evicted items. The authors evaluated it on 6,594 traces from 14 datasets and report lower miss ratios than state-of-the-art algorithms across them ([S3-FIFO](https://s3fifo.com/blog/2023/08/01/fifo-queues-are-all-you-need-for-cache-eviction/)).
+
+Of the three, S3-FIFO is the hardest to picture from words alone. Here are its queues:
+
+<S3FifoQueues />
+
+Which brings back the earlier point about FIFO. The [Twitter study I mentioned in Part 1](https://rishabh-writes.vercel.app/blog/01_cache-caching-101-the-100x-trick#:~:text=Where%20this%20comes,on%20real%20traffic.) looked at 153 production clusters and found that simple FIFO is surprisingly competitive with LRU on many of them. And that paper has another finding I find even more useful: **TTL is an important, sometimes defining, parameter of the working set** ([OSDI '20](https://www.usenix.org/conference/osdi20/presentation/yang)). In plenty of real caches, items expire long before they're ever evicted. So the policy you pick may matter less than the TTL you set.
+
+---
+
+## The Real-World Story: When the Cache Itself Becomes the Problem
+
+Here's an example I love because it's not about hit ratio at all.
+
+Discord's "Read States" service tracks which channels and messages you've read. It's on the hot path: accessed when you connect, when a message is sent, and when a message is read. Each server held a big LRU cache with millions of users and tens of millions of read states, with hundreds of thousands of updates per second.
+
+It ran in Go, and every couple of minutes, latency spiked. The culprit wasn't the cache logic. It was Go's garbage collector. When an entry was evicted from the LRU, its memory wasn't freed immediately. The collector had to scan the entire cache to find what was safe to free, and Go forces a GC run at least every two minutes. Scanning millions of entries caused the spikes. Discord rewrote the service in Rust, where evicted memory is freed immediately, and the spikes went away ([Discord blog](https://discord.com/blog/why-discord-is-switching-from-go-to-rust)).
+
+My takeaway: the eviction policy isn't just a hit-ratio question. A cache holds memory, and *how* it frees that memory interacts with your runtime. A great policy on paper can still hurt your tail latency.
+
+{/* TODO(Rishabh): optional - add an anonymized story about a cache sizing or eviction surprise */}
+
+---
+
+## How Big Should the Cache Be?
+
+There's no formula, but there's a useful concept: the **working set**, the data that's actively being used over some time window. If your cache is smaller than the working set, you thrash. If it's larger, extra memory buys you very little.
+
+Hit ratio versus cache size usually has diminishing returns. The first slice of memory buys a lot, because it captures the hot keys. Each additional slice buys less. That's [skew again, from Part 1](https://rishabh-writes.vercel.app/blog/01_cache-caching-101-the-100x-trick#:~:text=Skew.%20A,are%20rarely%20touched.). The practical move is to plot hit ratio against cache size for your own traffic, and stop where the curve flattens.
+
+Here's what that looks like for a simulated LRU cache. With skewed traffic, a cache holding just 1% of the keys already answers about 39% of requests. Growing it to 10% gets you to about 68%. But going from 30% to 50% of all keys, a huge amount of extra memory, adds only about 7 more points. With uniform traffic there is no skew to exploit, so the hit ratio is simply the fraction of keys you can hold.
+
+<HitRatioCurve client:visible />
+
+Curious how that curve was produced? The [appendix](#appendix-how-the-curve-was-generated-optional) at the bottom walks through the whole simulation. It's optional.
+
+---
+
+## Try It Yourself
+
+[Cache Lab scenario 3](https://rishu827.github.io/cache-lab-playground/#v1.eyJzIjoic2Nhbi1yZXNpc3RhbmNlIiwiYyI6eyJzZWVkIjoxLCJkdXJhdGlvbk1zIjo2MDAwMCwid2luZG93TXMiOjEwMDAsIndvcmtsb2FkIjp7ImtleXNwYWNlIjoxMDAwLCJyYXRlUGVyU2VjIjozMDAsInJlYWRSYXRpbyI6MSwic2VnbWVudHMiOlt7ImZyb21NcyI6MCwicGF0dGVybiI6eyJraW5kIjoiemlwZiIsInNrZXciOjEuNX19LHsiZnJvbU1zIjoyMDAwMCwicGF0dGVybiI6eyJraW5kIjoibWl4IiwicGFydHMiOlt7IndlaWdodCI6MSwicGF0dGVybiI6eyJraW5kIjoiemlwZiIsInNrZXciOjEuNX19LHsid2VpZ2h0IjoxLCJwYXR0ZXJuIjp7ImtpbmQiOiJzY2FuIn19XX19LHsiZnJvbU1zIjo0MDAwMCwicGF0dGVybiI6eyJraW5kIjoiemlwZiIsInNrZXciOjEuNX19XX0sImNhY2hlIjp7ImNhcGFjaXR5IjoxMDAsInBvbGljeSI6ImxydSIsInR0bE1zIjowLCJsYXRlbmN5TXMiOjF9LCJzdHJhdGVneSI6ImNhY2hlLWFzaWRlIiwid3JpdGVCZWhpbmRGbHVzaE1zIjoyMDAwLCJvcmlnaW4iOnsibGF0ZW5jeU1zIjo4MCwiaml0dGVyIjowLjMsImNvbmN1cnJlbmN5Ijo0MCwiZmFpbHVyZVJhdGUiOjB9LCJwcm90ZWN0aW9ucyI6eyJjb2FsZXNjaW5nIjpmYWxzZSwidHRsSml0dGVyIjowLCJzdGFsZVdoaWxlUmV2YWxpZGF0ZU1zIjowLCJuZWdhdGl2ZUNhY2hlVHRsTXMiOjAsImJsb29tQml0c1BlcktleSI6MCwibGVhc2UiOmZhbHNlLCJsZWFzZVJldHJ5TXMiOjI1fSwiaW52YWxpZGF0aW9uIjp7InRhZ0dyb3VwcyI6MCwib25Xcml0ZSI6ImtleSIsInZlcnNpb25lZEtleXMiOmZhbHNlfSwibGF5ZXJzIjpbXSwiY2x1c3RlciI6eyJub2RlcyI6MSwicm91dGVyIjoiY29uc2lzdGVudCIsInZub2RlcyI6MTAwfSwiZXZlbnRzIjpbXX19) gives you a skewed workload with a sudden scan burst.
+
+**Challenge:** keep the hit ratio above 70% *during* the scan. Try LRU first and watch it collapse. Then switch policies and see what saves you.
+
+---
+
+## Summary
+
+Every cache has to evict, and the policy is a bet on the future. LRU bets on recency and loses to scans. LFU bets on frequency and loses to stale popularity. Real systems use hybrids, admission filters, or protected zones to cover both. Don't forget TTL and runtime behaviour either: sometimes they matter more than the algorithm.
+
+You can write an LRU in 20 lines. Choosing and tuning one for your workload is the real skill.
+
+**Next up:** [Cache Invalidation: Why It's Really One of the Two Hard Problems](/blog/cache-invalidation-two-hard-things). Eviction is the cache choosing to forget. Invalidation is you needing it to.
+
+---
+
+## Appendix: How the Curve Was Generated (Optional)
+
+You don't need this to follow the rest of the series. It's here so you can check my numbers, and change them.
+
+The chart is not drawn by hand. It comes from a small simulation: generate a stream of requests, replay it through an LRU cache of a given size, and count how many requests were hits. Do that for several cache sizes and you have a curve.
+
+The one idea that may be new is **Zipf**. Rank the keys by popularity, with key 0 the most popular. In a Zipf distribution, the key at rank `i` is requested with a weight proportional to `1 / (i + 1)` raised to the *skew*. Skew 0 means every key is equally likely, and the higher the skew, the more the traffic piles onto the first few keys. I used a skew of 1.0. To pick a random key with those weights, add the weights up as a running total, pick a random point on that total, and binary search for the key it lands on.
+
+Here is the whole thing, about 50 lines:
+
+```ts
+// 1. A tiny seeded random generator, so every run gives the same numbers.
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// 2. Zipf requests: key i (0 is the most popular) gets weight 1 / (i + 1)^skew.
+function zipfRequests(keys: number, skew: number, count: number, rand: () => number): Int32Array {
+  const cumulative = new Float64Array(keys);
+  let total = 0;
+  for (let i = 0; i < keys; i++) {
+    total += 1 / Math.pow(i + 1, skew);
+    cumulative[i] = total;
+  }
+  const out = new Int32Array(count);
+  for (let r = 0; r < count; r++) {
+    const target = rand() * total;
+    let lo = 0;
+    let hi = keys - 1; // binary search: first key whose cumulative weight reaches the target
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (cumulative[mid] < target) lo = mid + 1;
+      else hi = mid;
+    }
+    out[r] = lo;
+  }
+  return out;
+}
+
+// 3. Replay the requests through an LRU cache and count hits after the warm-up.
+function lruHitRatio(requests: Int32Array, capacity: number, warmup: number): number {
+  const cache = new Map<number, true>(); // first entry = least recently used
+  let hits = 0;
+  requests.forEach((key, i) => {
+    const hit = cache.has(key);
+    if (hit) cache.delete(key);
+    else if (cache.size >= capacity) cache.delete(cache.keys().next().value as number);
+    cache.set(key, true);
+    if (i >= warmup && hit) hits++;
+  });
+  return hits / (requests.length - warmup);
+}
+
+// 4. One request stream, replayed against several cache sizes.
+const KEYS = 10_000;
+const requests = zipfRequests(KEYS, 1.0, 200_000, mulberry32(7));
+for (const pct of [1, 2, 5, 10, 20, 30, 50]) {
+  const capacity = Math.round((KEYS * pct) / 100);
+  const ratio = lruHitRatio(requests, capacity, 20_000);
+  console.log(`${pct}% of keys -> ${(ratio * 100).toFixed(1)}% hit ratio`);
+}
+```
+
+Save it as `curve.ts` and run `node curve.ts` (Node 23.6 or newer; on older versions use `npx tsx curve.ts`). You should see exactly the numbers in the chart, because the random generator is seeded.
+
+A few choices in there are worth explaining:
+
+- **The same requests for every cache size.** If each size got its own random stream, some of the difference between points would be luck. Replaying one stream means the differences come from the cache size alone.
+- **A warm-up that isn't counted.** An empty cache misses everything at first. Excluding the first 20,000 requests measures the steady state, which is what you care about.
+- **The uniform line.** The dashed line on the chart uses the same code with the Zipf sampler swapped for `Math.floor(rand() * KEYS)`. With no skew, a cache holding 10% of the keys hits about 10% of the time, which is a useful baseline to compare against.
+
+What this does *not* tell you: it's one eviction policy (LRU), one random seed, and one skew value. Real traffic has its own shape, which is why the advice earlier in the post still stands: measure your own.
+
+If you want to play with it, try three things. Change the skew to 0.8 and then 1.2 and see how much the curve moves. Swap the LRU for a FIFO by removing the `cache.delete(key)` on a hit. Or load one of the Twitter traces from Part 1 instead of generating requests, and see how a real workload compares.
+
+---
+
+## References
+
+- Megiddo, Modha. [ARC: A Self-Tuning, Low Overhead Replacement Cache](https://www.usenix.org/conference/fast-03/arc-self-tuning-low-overhead-replacement-cache), FAST 2003
+- Einziger, Friedman, Manes. [TinyLFU: A Highly Efficient Cache Admission Policy](https://dl.acm.org/doi/10.1145/3149371), ACM Transactions on Storage, 2017
+- Yang et al. [FIFO queues are all you need for cache eviction](https://s3fifo.com/blog/2023/08/01/fifo-queues-are-all-you-need-for-cache-eviction/), SOSP 2023
+- Yang, Yue, Rashmi. [A Large Scale Analysis of Hundreds of In-Memory Cache Clusters at Twitter](https://www.usenix.org/conference/osdi20/presentation/yang), OSDI 2020
+- [The InnoDB Buffer Pool](https://dev.mysql.com/doc/refman/5.7/en/innodb-buffer-pool.html), MySQL documentation
+- Discord. [Why Discord is switching from Go to Rust](https://discord.com/blog/why-discord-is-switching-from-go-to-rust)
