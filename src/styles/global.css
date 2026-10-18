@@ -561,6 +561,38 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--color-heading);
 }
 
+/* ── Animated visuals (src/components/blog/_shared + 04_*/visuals) ── */
+.tl-controls {
+  align-items: center;
+}
+.tl-scrub {
+  flex: 1 1 8rem;
+  min-width: 6rem;
+  accent-color: var(--color-accent);
+}
+.cf-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+}
+.cf-range label {
+  font-weight: 700;
+  color: var(--color-heading);
+}
+.cf-range input[type='range'] {
+  flex: 1 1 8rem;
+  min-width: 6rem;
+  max-width: 18rem;
+  accent-color: var(--color-accent);
+}
+
+.tl-caption {
+  min-height: 5.2em; /* keeps the layout from jumping when the text changes */
+}
+
 /* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

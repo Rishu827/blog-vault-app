@@ -1,0 +1,176 @@
+---
+title: "Cache Invalidation: Why It's Really One of the Two Hard Problems"
+description: "TTLs, deletes, versions, and the race condition that leaves stale data in your cache forever. Part 4 of the 8-part caching series."
+publishDate: 2026-10-22
+updatedDate: 2026-10-22
+author: "Rishabh Singhal"
+library: wit
+tags: ["caching", "distributed-systems", "consistency", "system-design"]
+draft: false
+---
+
+import RaceAnimation from '../../components/blog/04_cache-cache-invalidation-two-hard-things/visuals/RaceAnimation.tsx';
+import CdcAnimation from '../../components/blog/04_cache-cache-invalidation-two-hard-things/visuals/CdcAnimation.tsx';
+
+There's an old joke, often attributed to [Phil Karlton](https://martinfowler.com/bliki/TwoHardThings.html#:~:text=There%20are%20only%20two%20hard%20things%20in%20Computer%20Science%3A%20cache%20invalidation%20and%20naming%20things.), that there are only two hard things in computer science: cache invalidation and naming things.
+
+It gets a laugh because it's true. A cache is a copy, and a copy starts going out of date the moment you make it. Invalidation is the work of deciding *when a copy can no longer be trusted* and dealing with it.
+
+*This is Part 4 of the caching series. [Part 3](/blog/03_cache-who-gets-evicted-lru-lfu) covered what the cache forgets on its own. This one is about making it forget on purpose.*
+
+> **In one minute:** A TTL is the simplest invalidation: let things expire. For anything fresher, delete the cache entry when the data changes. But beware: a reader and a writer racing each other can put a stale value *back*, and it'll sit there until the TTL ends.
+
+---
+
+## A Familiar Bug
+
+You change your email address in a settings page. The page says "Saved." You refresh and see the old email. Refresh again, new email. Refresh again, old email.
+
+That's invalidation failing in front of a user. Somewhere there's a cache holding the old value, and different requests land on different copies. Let's look at the ways of fixing it, from simplest to most sophisticated.
+
+---
+
+## Strategy 1: TTL (Let It Expire)
+
+Give every entry a **time to live**. After that, it's gone and the next read refetches.
+
+```ts
+await cache.set(`user:${id}`, user, { ttl: 60 });  // trust this for 60 seconds
+```
+
+**Pros:** trivial to implement, and it's a safety net no matter what else goes wrong.
+
+**Cons:** your data can be wrong for up to the full TTL. Short TTLs mean more misses and more load. Long TTLs mean more staleness. You're picking a point on that tradeoff.
+
+Even if you use fancier techniques, keep a TTL as a backstop. If a cleverer mechanism misses an invalidation, the TTL puts a ceiling on how wrong you can be.
+
+## Strategy 2: Delete on Write
+
+When data changes, remove the cache entry. The next read repopulates it.
+
+```ts
+async function updateEmail(id: string, email: string) {
+  await db.users.update(id, { email });
+  await cache.delete(`user:${id}`);
+}
+```
+
+Delete instead of update, because deleting is idempotent and doesn't require you to compute the new cached shape. But this approach has a big hole in it.
+
+---
+
+## The Race Condition
+
+Here's the sequence that makes people lose weekends. Two requests, one reader and one writer, on the same key. Watch the animation: the reader misses the cache and loads the **old** email from the database. Then it gets slow. While it dawdles, the writer updates the database to the **new** email and deletes the cache entry (there's nothing there to delete). Finally the reader wakes up and writes what it read, the old email, into the cache.
+
+<RaceAnimation client:visible />
+
+Every individual step did the right thing. And yet at the end, the cache holds the old email while the database holds the new one. Nothing will fix this until the TTL runs out, and if there's no TTL, never.
+
+The reader was just slow. It read before the write, and it wrote to the cache after the delete. That gap, on a busy system, is easy to hit.
+
+This is also why a TTL backstop is not optional.
+
+---
+
+## Strategy 3: Fix the Race
+
+There are a few ways to close that window. Back in the animation above, switch to **With a lease** and **With a versioned fill** to watch each fix handle the same race. Then drag the slider: unlike the plain version, they come out correct at every reader speed.
+
+### Versioned writes
+Give every row a version number. When filling the cache, only accept the write if the version is newer than what's there (or only if the key doesn't exist and hasn't been invalidated since you read). Uber's CacheFront uses row timestamps for a similar deduplication, so a stale value can't overwrite a newer cached one during concurrent writes ([Uber](https://www.uber.com/us/en/blog/how-uber-serves-over-40-million-reads-per-second-using-an-integrated-cache)).
+
+### Leases
+This is the one from Facebook's memcache paper, and it's elegant. When a reader misses, the cache hands it a **lease token**. When the reader tries to fill the cache, it must present the token. If the key was invalidated in the meantime, the token is no longer valid and the cache rejects the write. In our race above, step 4's delete would void the reader's lease, so step 5 fails.
+
+The same paper uses leases for a second purpose: the cache issues a token at most once every 10 seconds per key, so when a popular key is missing, only one reader goes to the database while others wait briefly and retry. They reported peak database query rates dropping from 17K/s to 1.3K/s in one measurement ([Scaling Memcache at Facebook, NSDI 2013](https://www.usenix.org/conference/nsdi13/technical-sessions/presentation/nishtala)). One mechanism, two problems solved. Part 6 comes back to the second one.
+
+### Versioned keys
+Instead of changing what a key points to, change the key. Store the product as `product:42:v17`. When it changes, bump to `v18`. Old entries just age out of the cache. There's no delete, so there's no race, and it's the same idea behind content-hashed filenames on the web (Part 5). The cost is that something has to know the current version.
+
+---
+
+## Strategy 4: Event-Driven Invalidation
+
+Instead of relying on every code path remembering to delete the cache key, let the *database change* trigger invalidation.
+
+The technique is **change data capture (CDC)**: tail the database's own log of changes, and publish each one as an event. A consumer subscribes and invalidates or updates the cache. Here's the pipeline running, with a second service that has never heard of your cache also changing the data:
+
+<CdcAnimation client:visible />
+
+Two real examples:
+
+- **Facebook** runs a daemon that reads the MySQL commit log and sends deletes to the right memcache servers. Invalidation happens as a consequence of the database commit, not application code that might get skipped.
+- **Uber's CacheFront** tails MySQL binlog events through its CDC service, Flux. Entries expire after 5 minutes by default, but CDC means the cache is consistent within seconds of a database change, rather than waiting on the TTL ([Uber](https://www.uber.com/us/en/blog/how-uber-serves-over-40-million-reads-per-second-using-an-integrated-cache)).
+
+Nice property: it works no matter which service made the write, including one that doesn't know your cache exists. Cost: you've added a pipeline, and now *that* pipeline can lag or fail.
+
+## Strategy 5: Tags and Groups
+
+Sometimes one change affects many entries. Updating a category name affects every page listing that category. Tracking every key by hand is painful.
+
+With **tag-based invalidation**, you tag cache entries when you store them (`tags: ["category:7", "brand:3"]`) and then invalidate by tag. Many frameworks and CDNs offer this.
+
+## Strategy 6: Serve Stale on Purpose
+
+What if staleness is okay *briefly*, and you'd rather be fast than perfectly fresh? **Stale-while-revalidate** serves the old value immediately and refreshes it in the background, so the user never waits. It's defined for HTTP in RFC 5861, along with `stale-if-error`, which serves old data if the origin is failing ([RFC 5861](https://datatracker.ietf.org/doc/html/rfc5861)).
+
+I like this one because it's honest. It accepts staleness as a feature and puts a bound on it.
+
+---
+
+## Which One Do I Use?
+
+| Situation | Reach for |
+|---|---|
+| Staleness of a minute or so is fine | TTL alone |
+| Users must see their own changes quickly | Delete on write, plus TTL backstop |
+| Concurrent readers and writers on hot keys | Versioning or leases |
+| Many writers, many services | CDC-based invalidation |
+| One change touches many entries | Tags |
+| Latency matters more than perfect freshness | Stale-while-revalidate |
+
+Most real systems layer two or three of these, always with a TTL underneath.
+
+---
+
+## You Can't Fix What You Don't Measure
+
+How do you know your invalidation actually works? Most teams answer with "we haven't noticed any problems," which is the same as not knowing.
+
+Meta wrote about this in "Cache made consistent." They run caches like [TAO](https://engineering.fb.com/2013/06/25/core-infra/tao-the-power-of-the-graph/) and Memcache at enormous scale, and they built a service called [**Polaris**](https://engineering.fb.com/2022/06/08/core-infra/cache-made-consistent/#:~:text=To%20solve%20the,client%2Dobservable%20invariants.) to measure consistency directly. Polaris acts as a regular client and checks one invariant: the cache should *eventually* be consistent with the database. When it sees an invalidation event, it queries cache replicas to see if any still hold an older version, and reports violations at timescales like one, five, and ten minutes. Meta reports improving TAO's cache consistency from six nines (99.9999%) to ten nines (99.99999999%) ([Meta Engineering](https://engineering.fb.com/2022/06/08/core-infra/cache-made-consistent/)).
+
+You probably don't need Polaris. But you can steal the idea: write a check that compares cache and database for a sample of keys, and alert when they disagree for too long. A cache you can't verify is a cache you're hoping about.
+
+---
+
+## My Take
+
+I think the "two hard things" joke undersells it a little. Invalidation isn't hard because the techniques are complicated. It's hard because it's a *distributed systems* problem wearing a simple costume. The moment there are two copies of a fact and no single moment when both change, you're dealing with ordering, races, and partial failure, the same things that make [transactions](/blog/transactions) hard, with fewer guarantees.
+
+So my rules: always set a TTL, decide *explicitly* how much staleness each piece of data can tolerate, and prefer simple mechanisms until you've measured a problem that needs a fancy one.
+
+---
+
+## Try It Yourself
+
+[Cache Lab scenario 4](https://rishu827.github.io/cache-lab-playground/#v1.eyJzIjoic3RhbGUtcmVhZHMiLCJjIjp7InNlZWQiOjEsImR1cmF0aW9uTXMiOjYwMDAwLCJ3aW5kb3dNcyI6MTAwMCwid29ya2xvYWQiOnsia2V5c3BhY2UiOjMwLCJyYXRlUGVyU2VjIjoyMDAsInJlYWRSYXRpbyI6MC43LCJzZWdtZW50cyI6W3siZnJvbU1zIjowLCJwYXR0ZXJuIjp7ImtpbmQiOiJ1bmlmb3JtIn19XX0sImNhY2hlIjp7ImNhcGFjaXR5IjoxMDAsInBvbGljeSI6ImxydSIsInR0bE1zIjozMDAwMCwibGF0ZW5jeU1zIjoxfSwic3RyYXRlZ3kiOiJ3cml0ZS1hcm91bmQiLCJ3cml0ZUJlaGluZEZsdXNoTXMiOjIwMDAsIm9yaWdpbiI6eyJsYXRlbmN5TXMiOjgwLCJqaXR0ZXIiOjAuNCwiY29uY3VycmVuY3kiOjIwLCJmYWlsdXJlUmF0ZSI6MH0sInByb3RlY3Rpb25zIjp7ImNvYWxlc2NpbmciOmZhbHNlLCJ0dGxKaXR0ZXIiOjAsInN0YWxlV2hpbGVSZXZhbGlkYXRlTXMiOjAsIm5lZ2F0aXZlQ2FjaGVUdGxNcyI6MCwiYmxvb21CaXRzUGVyS2V5IjowLCJsZWFzZSI6ZmFsc2UsImxlYXNlUmV0cnlNcyI6MjV9LCJpbnZhbGlkYXRpb24iOnsidGFnR3JvdXBzIjowLCJvbldyaXRlIjoia2V5IiwidmVyc2lvbmVkS2V5cyI6ZmFsc2V9LCJsYXllcnMiOltdLCJjbHVzdGVyIjp7Im5vZGVzIjoxLCJyb3V0ZXIiOiJjb25zaXN0ZW50Iiwidm5vZGVzIjoxMDB9LCJldmVudHMiOltdfX0) lets you inject the exact race condition from this post and watch stale reads appear on a timeline.
+
+**Challenge:** eliminate stale reads without destroying your hit ratio. Try leases, then versions, and compare.
+
+---
+
+## Summary
+
+A cache is a copy, so it goes stale. TTLs bound how stale. Deleting on write shortens it but opens a race where a slow reader writes an old value back. Leases, versions, and CDC close that gap, at the cost of more machinery. Serving stale on purpose is a legitimate choice. And whatever you pick, measure consistency instead of assuming it.
+
+**Next up:** [Every Layer Is a Cache: From Browser to CDN to Database](/blog/every-layer-is-a-cache). Everything so far was one cache. Real systems have six.
+
+---
+
+## References
+
+- Nishtala et al. [Scaling Memcache at Facebook](https://www.usenix.org/conference/nsdi13/technical-sessions/presentation/nishtala), NSDI 2013
+- Meta Engineering. [Cache made consistent](https://engineering.fb.com/2022/06/08/core-infra/cache-made-consistent/), 2022
+- Uber. [How Uber Serves Over 40 Million Reads Per Second Using an Integrated Cache](https://www.uber.com/us/en/blog/how-uber-serves-over-40-million-reads-per-second-using-an-integrated-cache), 2024
+- Nottingham. [RFC 5861: HTTP Cache-Control Extensions for Stale Content](https://datatracker.ietf.org/doc/html/rfc5861)
