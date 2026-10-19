@@ -17,6 +17,8 @@ const blog = defineCollection({
         .default([]),
       coverImage: z.string().url().optional().nullable().default(null),
       coverImageAlt: z.string().optional(),
+      videoUrl: z.string().url().optional().nullable().default(null),
+      reelUrl: z.string().url().optional().nullable().default(null),
       draft: z.boolean().default(false),
       canonicalURL: z.string().url().optional().nullable().default(null),
     })
