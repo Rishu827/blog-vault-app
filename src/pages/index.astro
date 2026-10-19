@@ -2,12 +2,9 @@
 import { getCollection } from 'astro:content';
 import BaseLayout from '../components/BaseLayout.astro';
 import PostShelf from '../components/PostShelf.astro';
-import RSSSubscribe from '../components/RSSSubscribe.tsx';
 import { calculateReadingTime } from '../utils/readingTime';
 
 const isDev = import.meta.env.DEV;
-const siteUrl = (import.meta.env.SITE_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://rishabh-writes.vercel.app';
-const feedUrl = `${siteUrl}/rss.xml`;
 
 const allPosts = await getCollection('blog', ({ data }) => {
   if (isDev) return true;
@@ -79,15 +76,11 @@ function getBookColors(slug: string) {
       </h1>
       <p class="hero-subtext" style="display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px;">
         <span>I'm </span>
-        <a href="https://www.linkedin.com/in/rishabh-singhal-036ab618b/" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: flex; align-items: center; gap: 5px;">
-          <strong style="color: var(--color-text);">Rishabh Singhal</strong>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="color: #0077b5; display: inline-block; vertical-align: middle;">
-            <path d="M0 1.146C0 .513.526 0 1.175 0h13.65C15.474 0 16 .513 16 1.146v13.708c0 .633-.526 1.146-1.175 1.146H1.175C.526 16 0 15.487 0 14.854zm4.943 12.248V6.169H2.542v7.225zm-1.2-8.212c.837 0 1.358-.554 1.358-1.248-.015-.709-.52-1.248-1.342-1.248S2.4 3.226 2.4 3.934c0 .694.521 1.248 1.327 1.248zm4.908 8.212V9.359c0-.216.016-.432.08-.586.173-.431.568-.878 1.232-.878.869 0 1.216.662 1.216 1.634v3.865h2.401V9.25c0-2.22-1.184-3.252-2.764-3.252-1.274 0-1.845.7-2.165 1.193v.025h-.016l.016-.025V6.169h-2.4c.03.678 0 7.225 0 7.225z"/>
-          </svg>
-        </a>
+        <strong style="color: var(--color-text);">Rishabh Singhal</strong>
         <span> — I write about software engineering, system design, and the tools I use every day.</span>
       </p>
       <div class="hero-actions">
+      <div class="hero-row">
         <a href="/blog" class="hero-btn-primary">Enter the Library →</a>
         <a
           href="https://groups.google.com/g/rishabh-writes"
@@ -96,13 +89,52 @@ function getBookColors(slug: string) {
           class="flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors hover:opacity-80 focus-visible:outline-none focus-visible:ring-2"
           style="border-color: var(--color-border); color: var(--color-text); --tw-ring-color: var(--color-accent); text-decoration: none;"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--color-accent);">
-            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-            <polyline points="22,6 12,13 2,6"/>
-          </svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#4285F4" aria-hidden="true"><path d="M12 12.75c1.63 0 3.07.39 4.24.9 1.08.48 1.76 1.56 1.76 2.73V18H6v-1.61c0-1.18.68-2.26 1.76-2.73 1.17-.52 2.61-.91 4.24-.91zM4 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm1.13 1.1c-.37-.06-.74-.1-1.13-.1-.99 0-1.93.21-2.78.58C.48 14.9 0 15.62 0 16.43V18h4.5v-1.61c0-.83.23-1.61.63-2.29zM20 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm4 3.43c0-.81-.48-1.53-1.22-1.85-.85-.37-1.79-.58-2.78-.58-.39 0-.76.04-1.13.1.4.68.63 1.46.63 2.29V18H24v-1.57zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/></svg>
           Subscribe
         </a>
-        <RSSSubscribe feedUrl={feedUrl} client:load />
+      </div>
+      <div class="hero-row">
+        <a
+          href="https://www.linkedin.com/in/rishabh-singhal-036ab618b/"
+          aria-label="LinkedIn"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors hover:opacity-80 focus-visible:outline-none focus-visible:ring-2"
+          style="border-color: var(--color-border); color: var(--color-text); --tw-ring-color: var(--color-accent); text-decoration: none;"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true" style="color: #0077b5;"><path d="M0 1.146C0 .513.526 0 1.175 0h13.65C15.474 0 16 .513 16 1.146v13.708c0 .633-.526 1.146-1.175 1.146H1.175C.526 16 0 15.487 0 14.854zm4.943 12.248V6.169H2.542v7.225zm-1.2-8.212c.837 0 1.358-.554 1.358-1.248-.015-.709-.52-1.248-1.342-1.248S2.4 3.226 2.4 3.934c0 .694.521 1.248 1.327 1.248zm4.908 8.212V9.359c0-.216.016-.432.08-.586.173-.431.568-.878 1.232-.878.869 0 1.216.662 1.216 1.634v3.865h2.401V9.25c0-2.22-1.184-3.252-2.764-3.252-1.274 0-1.845.7-2.165 1.193v.025h-.016l.016-.025V6.169h-2.4c.03.678 0 7.225 0 7.225z"/></svg>
+        </a>
+        <a
+          href="https://x.com/com_singhal"
+          aria-label="X"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors hover:opacity-80 focus-visible:outline-none focus-visible:ring-2"
+          style="border-color: var(--color-border); color: var(--color-text); --tw-ring-color: var(--color-accent); text-decoration: none;"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="color: var(--color-text);"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </a>
+        <a
+          href="https://www.youtube.com/@universe_with_a_lens"
+          aria-label="YouTube"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors hover:opacity-80 focus-visible:outline-none focus-visible:ring-2"
+          style="border-color: var(--color-border); color: var(--color-text); --tw-ring-color: var(--color-accent); text-decoration: none;"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="color: #ff0000;"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1c.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.6 15.6V8.4l6.2 3.6-6.2 3.6z"/></svg>
+        </a>
+        <a
+          href="https://www.instagram.com/universe_with_a_lens/reels/"
+          aria-label="Instagram"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors hover:opacity-80 focus-visible:outline-none focus-visible:ring-2"
+          style="border-color: var(--color-border); color: var(--color-text); --tw-ring-color: var(--color-accent); text-decoration: none;"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: #e1306c;"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+        </a>
+      </div>
       </div>
       <div class="ornament mt-8" aria-hidden="true">✦ &nbsp; ✦ &nbsp; ✦</div>
     </div>
@@ -203,6 +235,13 @@ function getBookColors(slug: string) {
   }
 
   .hero-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .hero-row {
     display: flex;
     align-items: center;
     justify-content: center;

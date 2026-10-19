@@ -32,7 +32,6 @@ A personal developer blog built with Astro, MDX, Tailwind CSS, and Preact. Stati
 - **Reading progress bar** pinned below the navbar
 - **Highlight-to-comment** — select any text and open a pre-filled GitHub Discussion
 - **Giscus comments** lazy-loaded, theme-synced with the blog
-- **RSS subscribe popover** — copy feed URL or open in Feedly, Inoreader, or NewsBlur
 - **Sitemap** auto-generated at build
 - **Full SEO** — OG tags, JSON-LD `BlogPosting`, canonical URLs
 - **Draft posts** — visible in dev with a DRAFT badge, completely excluded from production builds
@@ -53,7 +52,6 @@ src/
 │   ├── TagBadge.astro          # Clickable tag pill
 │   ├── Pagination.astro        # Prev / Next page links
 │   ├── GiscusComments.astro    # Lazy-loaded GitHub Discussions comments
-│   ├── RSSSubscribe.tsx        # Preact — RSS subscribe popover
 │   ├── ThemeToggle.tsx         # Preact — light/dark/system toggle
 │   ├── TableOfContents.tsx     # Preact — sticky sidebar with scroll tracking
 │   ├── CopyCodeButton.tsx      # Preact — injects copy buttons into code blocks
@@ -71,7 +69,6 @@ src/
 │   │   ├── index.astro         # All tags with post counts
 │   │   ├── [tag].astro         # Tag filter page
 │   │   └── [tag]/page/[page].astro
-│   ├── rss.xml.ts              # RSS 2.0 feed
 │   └── 404.astro               # Custom 404 page
 ├── styles/
 │   └── global.css              # CSS custom properties, shelf/book styles, Shiki dual-theme
@@ -163,7 +160,7 @@ const x = 1;
 | `slug` | No | Custom URL slug. Defaults to filename. |
 | `canonicalURL` | No | For cross-posted content. |
 
-**Draft posts** are visible in `pnpm dev` with a DRAFT badge. In `pnpm build` they are completely excluded — not in HTML, RSS, sitemap, or tag counts.
+**Draft posts** are visible in `pnpm dev` with a DRAFT badge. In `pnpm build` they are completely excluded — not in HTML, sitemap, or tag counts.
 
 ## Setting up Giscus
 
@@ -196,6 +193,5 @@ Analytics are available in the Vercel dashboard under the **Analytics** tab (req
 | `/blog/[slug]` | Individual post |
 | `/tags` | All tags with post counts |
 | `/tags/[tag]` | Posts filtered by tag |
-| `/rss.xml` | RSS 2.0 feed |
 | `/sitemap-index.xml` | Sitemap |
 | `/404` | Custom 404 page |
