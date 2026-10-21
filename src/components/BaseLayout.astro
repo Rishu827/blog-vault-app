@@ -70,6 +70,8 @@ const fullTitle = title.includes('|') ? title : `${title} | RishabhWrites`;
 
     <!-- ── Twitter Card ── -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@com_singhal" />
+    <meta name="twitter:creator" content="@com_singhal" />
     <meta name="twitter:title" content={fullTitle} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={resolvedOgImage} />
@@ -95,6 +97,9 @@ const fullTitle = title.includes('|') ? title : `${title} | RishabhWrites`;
 
     <!-- ── Favicon ── -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- ── Page-specific head content (e.g. JSON-LD) ── -->
+    <slot name="head" />
 
   </head>
 

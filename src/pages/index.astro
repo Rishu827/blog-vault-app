@@ -27,6 +27,30 @@ const bookColors = [
   { cover: '#1E4A4A', spine: '#122e2e' },
 ];
 
+const siteUrl = (Astro.site ?? new URL('https://example.com')).href;
+const siteJsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'RishabhWrites',
+    url: siteUrl,
+    description: 'A personal developer blog about software engineering, system design, and tooling.',
+    author: { '@type': 'Person', name: 'Rishabh Singhal' },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: 'Rishabh Singhal',
+    url: siteUrl,
+    sameAs: [
+      'https://www.linkedin.com/in/rishabh-singhal-036ab618b/',
+      'https://x.com/com_singhal',
+      'https://www.youtube.com/@universe_with_a_lens',
+      'https://www.instagram.com/universe_with_a_lens/',
+    ],
+  },
+];
+
 function getBookColors(slug: string) {
   let hash = 0;
   for (const ch of slug) hash = ch.charCodeAt(0) + ((hash << 5) - hash);
@@ -35,9 +59,10 @@ function getBookColors(slug: string) {
 ---
 
 <BaseLayout
-  title="RishabhWrites | Home"
-  description="A personal developer blog about software engineering, architecture, and tooling."
+  title="RishabhWrites | Software Engineering & System Design Blog"
+  description="Rishabh Singhal writes about software engineering, system design, caching, databases, and the tools he uses every day."
 >
+  <script type="application/ld+json" set:html={JSON.stringify(siteJsonLd)} slot="head" />
   <!-- ══ Roman Library Hero ══ -->
   <section class="library-hero">
     <div class="column-left" aria-hidden="true">
